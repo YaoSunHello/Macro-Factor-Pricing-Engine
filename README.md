@@ -23,10 +23,10 @@ Output Presentation: Dashboard.html
 
 *Backtest and Model Validation*
 
-**
+
 
 *Presentation and App*
-
+-----------------------------------------------------------------------------------------------------------------------------
 
 ## Project Structure:
 Macro-Factor-Pricing-Engine/
@@ -44,3 +44,5 @@ Macro-Factor-Pricing-Engine/
 ├── output/
 │   └── dashboard.html
 └── README.md
+
+
