@@ -144,78 +144,98 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 
 ## Prompt
-ROLE
-You are a quantitative macro strategist and Python engineer. Build a retail-accessible
-asset allocation system that earns macro-driven return per unit of risk, using only
-publicly/freely available data. Prioritise clean, modular code over abstraction; leave
-no dead code. Build incrementally, one module at a time, and confirm the design of each
-module with me before writing the next.
+# Macro-Factor-Pricing-Engine — Module: Two-Axis Regime Refactor
 
-OBJECTIVE
-Maximise risk-adjusted return (target: Sharpe and Calmar, not raw return) of a portfolio
-of retail-tradeable instruments, by reading the macro environment and tilting allocations
-accordingly. Every allocation call must come with the economic reasoning behind it.
+## Context
+This repo already has a governance-first scaffold: `universe.py` (approved
+asset-class map, all ticker dicts empty, `has_tradeable_instruments()` returns
+False), `regimes.py` (six macro-state definitions over four transmission
+channels: growth, inflation, policy/liquidity, risk appetite), `policy.py`
+(objective, pending-only human input, no-lookahead, strategy triggers), and a
+unit-test suite. The system is intentionally NOT tradeable.
 
-HARD CONSTRAINTS
-- Universe: only retail-accessible, liquid instruments (broad ETFs across equity regions,
-  govt/IG/HY credit, duration buckets, gold/commodities, USD/FX proxies, cash). Propose
-  the specific ticker set and justify it.
-- Data: public/free only (e.g. FRED, Yahoo/Stooq, Treasury, ECB/BoE, public CFTC/COT,
-  shadow-rate and financial-conditions series). List every source and its update cadence.
-- AI calls: use a free AI API only, for the human-input module below.
-- No lookahead: all backtests must be point-in-time; respect each series' real release lag.
+Preserve every existing safety invariant. This module is an architectural
+refactor of the regime layer plus two channel additions. Do NOT build the live
+data/indicator scoring layer, the allocation engine, or Module 4 risk model.
 
-BUILD IN THIS ORDER (confirm each before proceeding)
+## Objective
+Regime is currently single-axis (macro state). Add a second, orthogonal axis —
+the causal MECHANISM — because state tells you what growth/inflation are doing
+and mechanism tells you why, and the "why" is what disambiguates positioning
+when the state is identical. Restructure regime records to (a) carry both axes,
+(b) let mechanism modify the asset map, and (c) support probabilistic (soft)
+assignment so transitions are a blended state, not a hard flip.
 
-1. MACRO MECHANISM & REGIME LAYER
-   Define the economic transmission logic (growth, inflation, policy/liquidity, risk
-   appetite) and a small set of identifiable regimes. State, per regime, the causal story
-   and which asset classes should lead/lag. Ground regimes in observable public indicators,
-   not latent abstractions.
+## Required changes
 
-2. INDICATOR LAYER
-   Map each public series to the macro variable it proxies. Define how raw series become
-   signals (transforms, z-scores, thresholds, release-lag handling). Keep it minimal and
-   auditable.
+### regimes.py
+1. `MacroState` enum: the existing six (goldilocks, reflation, stagflation,
+   disinflationary_slowdown, crisis_liquidity_stress, policy_tightening_shock).
+2. `CausalMechanism` enum: peg_or_promise_break, deliberate_policy_disruption,
+   leverage_institutional_breakdown, and a benign `cyclical_no_acute_mechanism`
+   for non-crisis states.
+3. A `Regime` is the pair (state, mechanism) plus: causal_story,
+   leading_assets, lagging_assets, observable_trigger_names, and an
+   `asset_map_overrides` field where mechanism modifies the base state's map.
+   Define ONLY the meaningful pairs — not the full 6×4 grid. Mechanism defaults
+   to `cyclical_no_acute_mechanism` for benign states.
+4. Make the override do real work with this concrete case used as a test anchor:
+   - stagflation × deliberate_policy_disruption → long_duration_government_bonds
+     moves to strong underweight (term-premium/fiscal risk dominates);
+   - stagflation × leverage_institutional_breakdown → long_duration_government_bonds
+     can rally (flight-to-quality once policy responds).
+   Same state, opposite duration call — this is the reason the axis exists.
+5. Add a `RegimeProbabilities` structure: a mapping of Regime → weight, weights
+   sum to 1.0 (validate, with float tolerance). The eventual indicator layer
+   emits this; the allocation layer will blend on it. Provide a helper to flag a
+   transition when no single regime holds > 0.6 of the mass.
+6. Add `fiscal_sovereign` to the transmission-channel set (it is a genuine
+   channel, not reducible to policy or risk — see gilts 2022, US term premium).
+7. Do NOT add valuation/positioning as a channel. It is a timing OVERLAY, not a
+   macro channel. Create a separate `ValuationOverlay` placeholder concept,
+   parallel to regimes, documented as "owned outside the macro→asset mapping;
+   gates entry timing." Leave its scoring unimplemented.
+8. Label leading/lagging asset lists as heuristic priors (a field or explicit
+   docstring flag), since each regime has only ~2–4 historical instances — these
+   are theory-priors, not fitted estimates.
 
-3. ASSET-RESPONSE RESEARCH
-   Summarise how each asset class has historically responded to each regime/event type,
-   citing the evidence. Produce a regime-to-asset-tilt mapping with expected sign and a
-   confidence level. Flag where the historical record is thin or conflicting.
+### universe.py
+- No tickers. `has_tradeable_instruments()` still returns False.
+- Add an optional `scoring_module` reference per asset class (None for now) so a
+  future rates module can attach to short_/intermediate_/long_duration_government
+  _bonds and inflation_linked_bonds. Seam only; wire nothing.
 
-4. ALLOCATION ENGINE
-   Translate live signals into target weights under an explicit risk model (vol targeting
-   and/or risk-parity baseline + regime tilts). Specify constraints (per-asset caps, gross/
-   net, turnover budget) and the rebalancing rule.
+### policy.py
+- Preserve all invariants (pending-only human input, no-lookahead, False-by-default).
+- Add `regime_detection_lag_budget` to the pending Module-4 controls: the signal
+  layer will call turns late; the backtest must be charged for detection lag
+  rather than assuming clean timing.
+- Add a `benchmark_or_liability_reference` field marked pending/unconfirmed, and
+  a note that the Sharpe/Calmar objective is currently asset-only.
+- `regime_transition` trigger fires on a probability-mass shift past threshold
+  (per RegimeProbabilities), not a hard state flip.
 
-5. HUMAN-INPUT MODULE
-   Accept a free-text observation, article, or X post. Then: (a) translate/normalise via the
-   free AI API; (b) extract structured claims and tag which macro variable/regime each bears
-   on; (c) assess source credibility and ask me targeted clarifying questions to validate it;
-   (d) propose a tentative, confidence-weighted signal adjustment — and require my explicit
-   confirmation before it can affect any weight. Never let unvalidated input move the portfolio.
+### tests
+Extend the suite to assert:
+- every defined (state, mechanism) pair is internally consistent and only
+  meaningful pairs exist;
+- the stagflation override flips long-duration positioning between the two
+  mechanisms;
+- RegimeProbabilities reject weights that don't sum to 1.0; transition helper
+  triggers below the 0.6 threshold;
+- valuation overlay is NOT in the channel set;
+- `has_tradeable_instruments()` is still False;
+- `regime_detection_lag_budget` exists in policy.
 
-6. PAPER PORTFOLIO & BACKTEST
-   Implement precise position sizing and the trade rules: what triggers a trade, when to
-   rebalance, and the no-trade band. Backtest with realistic transaction costs and slippage
-   against a stated benchmark (e.g. 60/40). Report CAGR, vol, Sharpe, Calmar, max drawdown,
-   turnover, hit rate, and regime-conditional performance. Give explicit "how and when to
-   trade" guidance an end user could follow.
+## Constraints
+- Minimal, clean diff. No dead code, no speculative abstraction.
+- Follow existing package/style conventions. Update README and Notes with the
+  new two-axis model and a CHANGELOG entry.
 
-7. LIVE MONITORING
-   Daily dashboard: PnL (cumulative and per-sleeve), current vs target weights, turnover,
-   active risk, regime state, and any pending human-input adjustments awaiting confirmation.
+## Out of scope (do not build)
+Live data ingestion, indicator scoring functions, the allocation/optimization
+engine, Module 4 risk model implementation, any ticker population.
 
-8. PORTFOLIO DIAGNOSTIC TOOL
-   Assess strategy health: factor/sector concentration, drawdown decomposition, signal decay,
-   stress/scenario sensitivity, capacity, and robustness to parameter perturbation. Output a
-   clear health verdict with the specific numbers behind it.
-
-OUTPUT STANDARDS
-- Every recommendation states its reasoning and the data points that drive it.
-- Presentation-ready output suitable to show to a non-specialist.
-- Surface assumptions and limitations explicitly; never present a fragile result as robust.
-
-START
-Before coding, confirm: (1) the instrument universe, (2) the data sources and their lags,
-(3) the regime definitions. Then proceed module by module.
+## Deliverable summary
+End with: the (state × mechanism) matrix you defined, which pairs you left
+undefined and why, and confirmation all tests pass.
