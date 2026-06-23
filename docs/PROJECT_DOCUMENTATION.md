@@ -44,6 +44,7 @@ The package lives in `src/macro_factor_pricing_engine`.
 | `regime_input.py` | Manual `RegimeProbabilities` stub for Stage 1 |
 | `treasury_policy.py` | Structured Treasury policy records from `TreasuryPolicy.md` |
 | `data/sources.py` | Data source interface, committed snapshot source, FRED stub |
+| `api_keys.py` | Broker API environment-variable setup and readiness checks |
 | `rates_scorer.py` | Treasury Block A-D scoring and derived metrics |
 | `sizing.py` | First-pass target weight convention for rates buckets |
 | `inventory.py` | Blank or persistent paper inventory plus append-only turnover ledger |
@@ -94,6 +95,25 @@ The loop performs these steps:
 10. Print a plain-language pending recommendation.
 
 The recommendation status is always `PENDING`. Live trading is disabled.
+
+## Broker API Setup
+
+`api_keys.py` records credential setup metadata for Trading 212, Interactive Brokers,
+Robinhood, IG Group, Capital.com, and Plus500. It reads only environment variables and
+does not build broker clients, open sessions, or place orders.
+
+The setup registry currently expects:
+
+| Broker | Required environment variables | Notes |
+|---|---|---|
+| Trading 212 | `TRADING212_API_KEY` | Personal API key setup only |
+| Interactive Brokers | `IBKR_GATEWAY_BASE_URL` | Client Portal Gateway URL/session setup only |
+| Robinhood | `ROBINHOOD_API_KEY`, `ROBINHOOD_PRIVATE_KEY` | Execution disabled until the official API scope is approved |
+| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Demo/live environment stays explicit |
+| Capital.com | `CAPITAL_COM_API_KEY`, `CAPITAL_COM_IDENTIFIER`, `CAPITAL_COM_API_PASSWORD` | Demo base URL is the default template |
+| Plus500 | none | No public retail trading API is configured |
+
+Use `.env.example` as a local template. Real `.env` files are ignored by git.
 
 ## Data
 

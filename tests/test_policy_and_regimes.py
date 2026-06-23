@@ -2,6 +2,15 @@ import unittest
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
+from macro_factor_pricing_engine.api_keys import (
+    BROKER_API_SETUPS,
+    Broker,
+    all_broker_api_statuses,
+    broker_api_status,
+    get_broker_api_setup,
+    load_broker_api_credentials,
+    normalize_broker,
+)
 from macro_factor_pricing_engine.app import run_analysis
 from macro_factor_pricing_engine.policy import build_default_policy
 from macro_factor_pricing_engine.regimes import (
@@ -118,6 +127,63 @@ class PolicyTests(unittest.TestCase):
         transition = next(trigger for trigger in policy.triggers if trigger.name == "regime_transition")
         self.assertIn("RegimeProbabilities", transition.condition)
         self.assertIn("probability-mass", transition.action)
+
+
+class BrokerApiSetupTests(unittest.TestCase):
+    def test_requested_brokers_have_api_setups(self):
+        self.assertEqual(
+            set(BROKER_API_SETUPS),
+            {
+                Broker.TRADING212,
+                Broker.INTERACTIVE_BROKERS,
+                Broker.ROBINHOOD,
+                Broker.IG_GROUP,
+                Broker.CAPITAL_COM,
+                Broker.PLUS500,
+            },
+        )
+        self.assertEqual(normalize_broker("interactivebroker"), Broker.INTERACTIVE_BROKERS)
+        self.assertEqual(normalize_broker("robinghood"), Broker.ROBINHOOD)
+        self.assertEqual(get_broker_api_setup("capital.com").display_name, "Capital.com")
+
+    def test_status_reports_missing_required_environment_without_secret_values(self):
+        status = broker_api_status("ig group", environ={"IG_API_KEY": "secret"})
+
+        self.assertFalse(status.configured)
+        self.assertEqual(status.missing_required_env_vars, ("IG_USERNAME", "IG_PASSWORD"))
+        self.assertNotIn("secret", repr(status))
+
+    def test_credentials_load_from_environment_when_complete(self):
+        credentials = load_broker_api_credentials(
+            "capital.com",
+            environ={
+                "CAPITAL_COM_API_KEY": "key",
+                "CAPITAL_COM_IDENTIFIER": "user@example.com",
+                "CAPITAL_COM_API_PASSWORD": "password",
+                "CAPITAL_COM_BASE_URL": "https://demo-api-capital.backend-capital.com/",
+            },
+        )
+
+        self.assertEqual(credentials.setup.broker, Broker.CAPITAL_COM)
+        self.assertEqual(credentials.values["CAPITAL_COM_API_KEY"], "key")
+        self.assertEqual(
+            credentials.values["CAPITAL_COM_BASE_URL"],
+            "https://demo-api-capital.backend-capital.com/",
+        )
+
+    def test_unsupported_public_api_does_not_load_credentials(self):
+        status = broker_api_status("plus500", environ={})
+
+        self.assertFalse(status.configured)
+        self.assertFalse(status.setup.execution_supported)
+        with self.assertRaises(RuntimeError):
+            load_broker_api_credentials("plus500", environ={})
+
+    def test_all_statuses_cover_every_setup(self):
+        statuses = all_broker_api_statuses(environ={})
+
+        self.assertEqual(len(statuses), len(BROKER_API_SETUPS))
+        self.assertEqual({status.setup.broker for status in statuses}, set(BROKER_API_SETUPS))
 
 
 class TreasuryPolicyTests(unittest.TestCase):

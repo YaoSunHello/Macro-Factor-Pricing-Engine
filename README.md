@@ -17,11 +17,16 @@ package under `src/macro_factor_pricing_engine` with:
 - a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
 - a rates-only end-to-end analysis loop that runs from committed snapshot data to a
   pending recommendation;
+- a broker API setup registry that validates environment-variable readiness for
+  Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and Plus500;
 - a focused unit test suite for the universe, regime, and policy records.
 
 The system is not tradeable yet. Asset classes are approved as categories, but no ticker
 can receive a paper or live allocation until the ticker dictionary is explicitly filled
 and approved.
+
+Broker API setup is credential plumbing only. It does not create live broker clients,
+open sessions, or submit orders.
 
 ## Project Structure
 
@@ -35,6 +40,7 @@ Macro-Factor-Pricing-Engine/
 │       ├── treasury_policy.py
 │       ├── TreasuryPolicy.md
 │       ├── universe.py
+│       ├── api_keys.py
 │       ├── app.py
 │       ├── rates_scorer.py
 │       ├── sizing.py
@@ -160,6 +166,45 @@ Recorded strategy triggers:
 
 The human-input and instrument-universe-change triggers require explicit confirmation.
 
+### Broker API Setup
+
+`src/macro_factor_pricing_engine/api_keys.py` defines API credential setup metadata and
+environment-variable readiness checks for:
+
+| Broker | Required environment variables | Execution support in registry |
+|---|---|---|
+| Trading 212 | `TRADING212_API_KEY` | Configurable, not wired to execution |
+| Interactive Brokers | `IBKR_GATEWAY_BASE_URL` | Configurable via Client Portal Gateway, not wired to execution |
+| Robinhood | `ROBINHOOD_API_KEY`, `ROBINHOOD_PRIVATE_KEY` | Disabled until the exact official API surface is approved |
+| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Configurable, not wired to execution |
+| Capital.com | `CAPITAL_COM_API_KEY`, `CAPITAL_COM_IDENTIFIER`, `CAPITAL_COM_API_PASSWORD` | Configurable, not wired to execution |
+| Plus500 | none | Unsupported unless Plus500 grants an official API integration |
+
+Use `.env.example` as the local setup template. Real `.env` files are ignored by git.
+
+Example readiness check:
+
+```bash
+PYTHONPATH=src python3 - <<'PY'
+from macro_factor_pricing_engine.api_keys import all_broker_api_statuses
+
+for status in all_broker_api_statuses():
+    missing = ", ".join(status.missing_required_env_vars) or "none"
+    print(f"{status.setup.display_name}: configured={status.configured}, missing={missing}")
+PY
+```
+
+Credential loading is explicit:
+
+```python
+from macro_factor_pricing_engine.api_keys import load_broker_api_credentials
+
+credentials = load_broker_api_credentials("capital.com")
+```
+
+The returned values are for a future broker-client layer only. They are not consumed by
+the current recommendation loop.
+
 ### Treasury Policy
 
 `src/macro_factor_pricing_engine/TreasuryPolicy.md` is the human-readable sovereign
@@ -225,6 +270,8 @@ Current test coverage checks that:
 - valuation overlay is not in the macro channel set;
 - human-input and universe-change triggers require confirmation;
 - policy blocks trading while tickers are empty;
+- broker API setup aliases resolve and missing credentials are reported without exposing
+  secret values;
 - regime detection lag budget exists in policy;
 - Treasury policy exists as structured data, not an autopilot scorer.
 - rates loop runs end-to-end on the committed snapshot;
@@ -253,6 +300,9 @@ The next planned module is Stage 1 regime classification:
   2026-06-18 snapshot, manual regime probabilities, Treasury scoring, target sizing,
   turnover ledger, first-pass risk readout, and pending recommendation output. Stage 1
   regime classification remains the priority unbuilt module.
+- `2026-06-23`: Added broker API credential setup metadata and environment readiness
+  checks for Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and
+  Plus500 without enabling live execution.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
