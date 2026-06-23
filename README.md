@@ -1,6 +1,132 @@
 # Macro-Factor-Pricing-Engine
 The model builds a probabilistic framework to understand asset price movements through macroeconomic drivers instead of a deterministic prediction.
 
+## Current Implementation Status
+
+The first implementation pass is complete. The repository now contains a small Python
+package under `src/macro_factor_pricing_engine` with:
+
+- an asset-class universe scaffold with ticker dictionaries intentionally left empty;
+- macro transmission logic and observable regime definitions;
+- a policy module that records strategy governance, review triggers, risk controls, and
+  human-input confirmation rules;
+- a focused unit test suite for the universe, regime, and policy records.
+
+The system is not tradeable yet. Asset classes are approved as categories, but no ticker
+can receive a paper or live allocation until the ticker dictionary is explicitly filled
+and approved.
+
+## Project Structure
+
+```text
+Macro-Factor-Pricing-Engine/
+├── src/
+│   └── macro_factor_pricing_engine/
+│       ├── __init__.py
+│       ├── policy.py
+│       ├── regimes.py
+│       └── universe.py
+├── tests/
+│   └── test_policy_and_regimes.py
+├── pyproject.toml
+├── README.md
+├── Notes
+└── LICENSE
+```
+
+## Implemented Modules
+
+### Universe Scaffold
+
+`src/macro_factor_pricing_engine/universe.py` defines the approved asset-class map.
+Each asset class is represented by an empty dictionary for now:
+
+- `us_equities`
+- `global_developed_equities`
+- `emerging_market_equities`
+- `short_duration_government_bonds`
+- `intermediate_duration_government_bonds`
+- `long_duration_government_bonds`
+- `inflation_linked_bonds`
+- `investment_grade_credit`
+- `high_yield_credit`
+- `gold`
+- `broad_commodities`
+- `usd_proxy`
+- `cash`
+
+The helper `has_tradeable_instruments()` returns `False` until at least one asset class
+has an approved instrument.
+
+### Macro Regime Layer
+
+`src/macro_factor_pricing_engine/regimes.py` records the macro mechanism layer requested
+in the prompt. It models the transmission channels:
+
+- growth;
+- inflation;
+- policy/liquidity;
+- risk appetite.
+
+The current regime definitions are:
+
+- `goldilocks`
+- `reflation`
+- `stagflation`
+- `disinflationary_slowdown`
+- `crisis_liquidity_stress`
+- `policy_tightening_shock`
+
+Each regime records the causal story, expected leading asset classes, expected lagging
+asset classes, and observable trigger names. These are definitions only; the indicator
+layer that scores live data has not been implemented yet.
+
+### Policy Module
+
+`src/macro_factor_pricing_engine/policy.py` records the strategy-level policy before the
+allocation engine exists. The current policy states:
+
+- objective: maximise risk-adjusted return using Sharpe and Calmar, not raw return;
+- no approved ticker can receive a target weight;
+- human input can only create a pending adjustment and can never automatically move the
+  portfolio;
+- no-lookahead data handling is mandatory;
+- risk model, vol target, concentration caps, and turnover budget are pending Module 4.
+
+Recorded strategy triggers:
+
+- `scheduled_monthly_review`
+- `regime_transition`
+- `policy_shock`
+- `liquidity_stress`
+- `human_input_pending`
+- `instrument_universe_change`
+
+The human-input and instrument-universe-change triggers require explicit confirmation.
+
+## Test Command
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+Current test coverage checks that:
+
+- approved asset classes exist but ticker dictionaries are blank;
+- no tradeable instruments are available yet;
+- regimes have causal stories and observable triggers;
+- human-input and universe-change triggers require confirmation;
+- policy blocks trading while tickers are empty.
+
+## Next Module
+
+The next planned module is the indicator layer:
+
+- map public data series to growth, inflation, policy/liquidity, and risk appetite;
+- record source, cadence, release lag, and transform for every indicator;
+- define auditable signal transforms and thresholds;
+- enforce point-in-time availability before any signal can affect a regime score.
+
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
 
