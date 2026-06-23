@@ -20,10 +20,19 @@ ASSET_CLASS_UNIVERSE: dict[str, dict[str, str]] = {
     "cash": {},
 }
 
+ASSET_CLASS_SCORING_MODULES: dict[str, str | None] = {
+    asset_class: None for asset_class in ASSET_CLASS_UNIVERSE
+}
+
 
 def asset_classes() -> tuple[str, ...]:
     """Return the approved asset classes with empty ticker selections."""
     return tuple(ASSET_CLASS_UNIVERSE)
+
+
+def scoring_module_for(asset_class: str) -> str | None:
+    """Return the optional scoring module reference for an asset class."""
+    return ASSET_CLASS_SCORING_MODULES[asset_class]
 
 
 def has_tradeable_instruments() -> bool:

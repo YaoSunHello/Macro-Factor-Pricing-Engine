@@ -7,9 +7,10 @@ The first implementation pass is complete. The repository now contains a small P
 package under `src/macro_factor_pricing_engine` with:
 
 - an asset-class universe scaffold with ticker dictionaries intentionally left empty;
-- macro transmission logic and observable regime definitions;
+- two-axis macro regime definitions: macro state plus causal mechanism;
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
+- a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
 - a focused unit test suite for the universe, regime, and policy records.
 
 The system is not tradeable yet. Asset classes are approved as categories, but no ticker
@@ -25,6 +26,8 @@ Macro-Factor-Pricing-Engine/
 │       ├── __init__.py
 │       ├── policy.py
 │       ├── regimes.py
+│       ├── treasury_policy.py
+│       ├── TreasuryPolicy.md
 │       └── universe.py
 ├── tests/
 │   └── test_policy_and_regimes.py
@@ -60,15 +63,11 @@ has an approved instrument.
 
 ### Macro Regime Layer
 
-`src/macro_factor_pricing_engine/regimes.py` records the macro mechanism layer requested
-in the prompt. It models the transmission channels:
+`src/macro_factor_pricing_engine/regimes.py` records the two-axis macro regime layer.
+It separates macro state from causal mechanism because the same state can require
+opposite asset calls depending on why it exists.
 
-- growth;
-- inflation;
-- policy/liquidity;
-- risk appetite.
-
-The current regime definitions are:
+Macro states:
 
 - `goldilocks`
 - `reflation`
@@ -77,9 +76,53 @@ The current regime definitions are:
 - `crisis_liquidity_stress`
 - `policy_tightening_shock`
 
-Each regime records the causal story, expected leading asset classes, expected lagging
-asset classes, and observable trigger names. These are definitions only; the indicator
-layer that scores live data has not been implemented yet.
+Causal mechanisms:
+
+- `cyclical_no_acute_mechanism`
+- `peg_or_promise_break`
+- `deliberate_policy_disruption`
+- `leverage_institutional_breakdown`
+
+Transmission channels:
+
+- growth;
+- inflation;
+- policy/liquidity;
+- risk appetite;
+- fiscal/sovereign.
+
+Valuation and positioning are explicitly not macro channels. They are represented by a
+separate placeholder `ValuationOverlay`, owned outside the macro-to-asset map and used
+later to gate entry timing.
+
+Defined state x mechanism pairs:
+
+| Macro state | Causal mechanism | Why defined |
+|---|---|---|
+| `goldilocks` | `cyclical_no_acute_mechanism` | benign expansion playbook |
+| `reflation` | `cyclical_no_acute_mechanism` | nominal growth acceleration playbook |
+| `stagflation` | `deliberate_policy_disruption` | inflation/policy/fiscal pressure dominates |
+| `stagflation` | `leverage_institutional_breakdown` | stress can restore duration flight-to-quality |
+| `disinflationary_slowdown` | `cyclical_no_acute_mechanism` | normal slowdown with easing optionality |
+| `crisis_liquidity_stress` | `peg_or_promise_break` | anchor break/contagion playbook |
+| `crisis_liquidity_stress` | `leverage_institutional_breakdown` | deleveraging and policy-response playbook |
+| `policy_tightening_shock` | `deliberate_policy_disruption` | forced repricing from policy/real-rate shock |
+
+The rest of the 6 x 4 grid is intentionally undefined because those pairs are not
+distinct strategy playbooks yet. Each defined pair records the causal story, expected
+leading asset classes, expected lagging asset classes, observable trigger names, and
+mechanism-specific asset-map overrides. Leading/lagging lists are labelled as heuristic
+theory-priors, not fitted estimates.
+
+The key test anchor is stagflation:
+
+- `stagflation x deliberate_policy_disruption`: long-duration government bonds are
+  `strong_underweight` because term-premium/fiscal risk dominates.
+- `stagflation x leverage_institutional_breakdown`: long-duration government bonds are
+  `overweight` because flight-to-quality can dominate once policy response is expected.
+
+`RegimeProbabilities` supports soft regime assignment and flags transitions when no
+single regime pair holds more than 0.6 of the probability mass.
 
 ### Policy Module
 
@@ -87,22 +130,43 @@ layer that scores live data has not been implemented yet.
 allocation engine exists. The current policy states:
 
 - objective: maximise risk-adjusted return using Sharpe and Calmar, not raw return;
+- the benchmark or liability reference is pending/unconfirmed, so the objective is
+  currently asset-only;
 - no approved ticker can receive a target weight;
 - human input can only create a pending adjustment and can never automatically move the
   portfolio;
 - no-lookahead data handling is mandatory;
-- risk model, vol target, concentration caps, and turnover budget are pending Module 4.
+- risk model, vol target, concentration caps, turnover budget, and regime detection lag
+  budget are pending Module 4.
 
 Recorded strategy triggers:
 
 - `scheduled_monthly_review`
-- `regime_transition`
+- `regime_transition` based on probability-mass shift, not hard state flip
 - `policy_shock`
 - `liquidity_stress`
 - `human_input_pending`
 - `instrument_universe_change`
 
 The human-input and instrument-universe-change triggers require explicit confirmation.
+
+### Treasury Policy
+
+`src/macro_factor_pricing_engine/TreasuryPolicy.md` is the human-readable sovereign
+rates policy. `src/macro_factor_pricing_engine/treasury_policy.py` writes it into the
+project as structured Python records:
+
+- required inputs and source names;
+- expected-short-rate, term-premium, fiscal-credibility, valuation/technical, and
+  cross-asset blocks;
+- signal rules;
+- fiscal credibility gate;
+- cross-asset sizing overlay;
+- segment positioning rules;
+- add/reduce long-end-duration checklists;
+- governance cadence.
+
+It is not a live scorer. It codifies the decision-support policy for later backtesting.
 
 ## Test Command
 
@@ -115,8 +179,14 @@ Current test coverage checks that:
 - approved asset classes exist but ticker dictionaries are blank;
 - no tradeable instruments are available yet;
 - regimes have causal stories and observable triggers;
+- only meaningful state x mechanism pairs are defined;
+- stagflation duration positioning flips by causal mechanism;
+- invalid `RegimeProbabilities` sums are rejected;
+- valuation overlay is not in the macro channel set;
 - human-input and universe-change triggers require confirmation;
-- policy blocks trading while tickers are empty.
+- policy blocks trading while tickers are empty;
+- regime detection lag budget exists in policy;
+- Treasury policy exists as structured data, not an autopilot scorer.
 
 ## Next Module
 
@@ -126,6 +196,13 @@ The next planned module is the indicator layer:
 - record source, cadence, release lag, and transform for every indicator;
 - define auditable signal transforms and thresholds;
 - enforce point-in-time availability before any signal can affect a regime score.
+
+## Changelog
+
+- `2026-06-23`: Refactored regimes into two axes, `MacroState x CausalMechanism`;
+  added fiscal/sovereign as a macro channel; kept valuation/positioning as a separate
+  overlay; added `RegimeProbabilities`; added the Treasury policy as structured code;
+  preserved empty ticker dictionaries and no-trade safety invariants.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.

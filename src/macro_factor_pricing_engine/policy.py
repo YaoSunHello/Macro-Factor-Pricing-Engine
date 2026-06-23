@@ -19,9 +19,11 @@ class StrategyPolicy:
     """Strategy-level rules that sit above signal and allocation modules."""
 
     objective: str
+    benchmark_or_liability_reference: str
     instrument_universe_status: str
     rebalance_rule: str
     no_trade_band: str
+    regime_detection_lag_budget: str
     risk_controls: tuple[str, ...]
     data_governance: tuple[str, ...]
     human_input_policy: tuple[str, ...]
@@ -33,7 +35,12 @@ def build_default_policy() -> StrategyPolicy:
     return StrategyPolicy(
         objective=(
             "Maximise risk-adjusted return using Sharpe and Calmar as primary "
-            "targets, while every allocation must state macro reasoning."
+            "targets, while every allocation must state macro reasoning. This is "
+            "currently asset-only until a benchmark or liability reference is confirmed."
+        ),
+        benchmark_or_liability_reference=(
+            "Pending/unconfirmed. Sharpe and Calmar are currently measured as asset-only "
+            "strategy objectives, not relative to a liability profile."
         ),
         instrument_universe_status=(
             "Asset classes are approved, but ticker dictionaries are intentionally "
@@ -48,11 +55,16 @@ def build_default_policy() -> StrategyPolicy:
             "Do not trade if proposed sleeve weight change is inside the future "
             "allocation module's no-trade threshold. Threshold value is not set yet."
         ),
+        regime_detection_lag_budget=(
+            "Pending Module 4 control. The future signal layer will detect turns late; "
+            "backtests must charge strategy timing for detection lag instead of assuming "
+            "clean regime-boundary execution."
+        ),
         risk_controls=(
             "No lookahead: each data point must be lagged to its public availability date.",
             "No unapproved ticker can receive a target weight.",
             "Human input can only create a pending adjustment, never an automatic trade.",
-            "Risk model, vol target, concentration caps, and turnover budget are pending Module 4.",
+            "Risk model, vol target, concentration caps, turnover budget, and detection lag budget are pending Module 4.",
         ),
         data_governance=(
             "Record source, release cadence, release lag, and transformation for every indicator.",
@@ -76,8 +88,8 @@ def build_default_policy() -> StrategyPolicy:
             StrategyTrigger(
                 name="regime_transition",
                 trigger_type="macro",
-                condition="Confirmed regime score changes from one regime to another.",
-                action="Open an allocation review and record the causal macro explanation.",
+                condition="No single RegimeProbabilities pair holds more than the transition threshold.",
+                action="Open an allocation review and record the probability-mass shift and causal explanation.",
                 requires_confirmation=False,
             ),
             StrategyTrigger(

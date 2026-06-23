@@ -1,5 +1,25 @@
 # Analysis of Your Macro-Factor-Pricing-Engine Framework
 
+## Changelog
+
+### 2026-06-23
+
+- Refactored the regime model from single-axis macro state into a two-axis design:
+  `MacroState x CausalMechanism`.
+- Added causal mechanisms: peg/promise break, deliberate policy disruption, leverage or
+  institutional breakdown, and benign cyclical/no-acute mechanism.
+- Added fiscal/sovereign as a genuine macro transmission channel.
+- Kept valuation and positioning outside the macro channel set as a separate timing
+  overlay placeholder.
+- Added soft `RegimeProbabilities` so regime transitions can be blended rather than hard
+  flips.
+- Preserved the safety invariants: ticker dictionaries remain empty, human input remains
+  pending-only, and no approved instruments means no trading.
+- Added `regime_detection_lag_budget` and pending benchmark/liability reference to the
+  strategy policy.
+- Wrote `TreasuryPolicy.md` into the project as structured Python records in
+  `treasury_policy.py`.
+
 
 Areas to Consider Strengthening
 1. Documentation Structure
