@@ -1,5 +1,8 @@
 import unittest
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
+from macro_factor_pricing_engine.app import run_analysis
 from macro_factor_pricing_engine.policy import build_default_policy
 from macro_factor_pricing_engine.regimes import (
     DEFINED_REGIME_PAIRS,
@@ -17,14 +20,18 @@ from macro_factor_pricing_engine.universe import (
     ASSET_CLASS_SCORING_MODULES,
     ASSET_CLASS_UNIVERSE,
     has_tradeable_instruments,
+    rates_securities,
 )
 
 
 class UniverseTests(unittest.TestCase):
-    def test_asset_classes_have_no_approved_tickers_yet(self):
+    def test_asset_classes_have_membership_but_no_approved_tickers_yet(self):
         self.assertTrue(ASSET_CLASS_UNIVERSE)
         self.assertFalse(has_tradeable_instruments())
-        self.assertTrue(all(instruments == {} for instruments in ASSET_CLASS_UNIVERSE.values()))
+        self.assertTrue(rates_securities())
+        self.assertTrue(
+            all(not security["approved_for_allocation"] for security in rates_securities())
+        )
 
     def test_scoring_module_seam_is_unwired(self):
         self.assertEqual(set(ASSET_CLASS_UNIVERSE), set(ASSET_CLASS_SCORING_MODULES))
@@ -122,6 +129,57 @@ class TreasuryPolicyTests(unittest.TestCase):
         self.assertTrue(policy.signal_rules)
         self.assertTrue(policy.checklists)
         self.assertIn("Use as structured prior, not autopilot.", policy.governance)
+
+
+class RatesLoopTests(unittest.TestCase):
+    def test_loop_runs_end_to_end_and_emits_pending_recommendation(self):
+        with TemporaryDirectory() as tmp:
+            recommendation = run_analysis(
+                inventory_path=Path(tmp) / "inventory.json",
+                turnover_log_path=Path(tmp) / "turnover.jsonl",
+            )
+
+            self.assertEqual(recommendation.mode, "analysis")
+            self.assertEqual(recommendation.status, "PENDING")
+            self.assertFalse(has_tradeable_instruments())
+            self.assertAlmostEqual(recommendation.target.total_weight(), 1.0)
+            self.assertGreater(recommendation.turnover_rows_appended, 0)
+            self.assertIn("PENDING analysis recommendation only", recommendation.explanation)
+
+    def test_turnover_log_appends(self):
+        with TemporaryDirectory() as tmp:
+            ledger = Path(tmp) / "turnover.jsonl"
+            run_analysis(
+                inventory_path=Path(tmp) / "inventory.json",
+                turnover_log_path=ledger,
+            )
+            first_count = len(ledger.read_text().splitlines())
+
+            run_analysis(
+                inventory_path=Path(tmp) / "inventory.json",
+                turnover_log_path=ledger,
+            )
+            second_count = len(ledger.read_text().splitlines())
+
+            self.assertGreater(first_count, 0)
+            self.assertEqual(second_count, first_count * 2)
+
+    def test_snapshot_default_regime_reproduces_hand_calc_stance(self):
+        """Wiring smoke only: proves loop reproduces one known hand calc, not policy validity."""
+        with TemporaryDirectory() as tmp:
+            recommendation = run_analysis(
+                inventory_path=Path(tmp) / "inventory.json",
+                turnover_log_path=Path(tmp) / "turnover.jsonl",
+            )
+            buckets = recommendation.target.bucket_weights()
+
+            self.assertGreaterEqual(
+                buckets["short_duration_government_bonds"]
+                + buckets["intermediate_duration_government_bonds"],
+                0.60,
+            )
+            self.assertLessEqual(buckets["long_duration_government_bonds"], 0.10)
+            self.assertGreaterEqual(buckets["inflation_linked_bonds"], 0.25)
 
 
 if __name__ == "__main__":

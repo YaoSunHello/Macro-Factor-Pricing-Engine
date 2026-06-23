@@ -11,6 +11,8 @@ package under `src/macro_factor_pricing_engine` with:
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
 - a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
+- a rates-only end-to-end analysis loop that runs from committed snapshot data to a
+  pending recommendation;
 - a focused unit test suite for the universe, regime, and policy records.
 
 The system is not tradeable yet. Asset classes are approved as categories, but no ticker
@@ -29,7 +31,16 @@ Macro-Factor-Pricing-Engine/
 │       ├── treasury_policy.py
 │       ├── TreasuryPolicy.md
 │       ├── universe.py
-|       └── app.py
+│       ├── app.py
+│       ├── rates_scorer.py
+│       ├── sizing.py
+│       ├── inventory.py
+│       ├── risk.py
+│       ├── explain.py
+│       ├── regime_input.py
+│       └── data/
+│           ├── sources.py
+│           └── snapshot_2026_06_18.json
 
 ├── tests/
 │   └── test_policy_and_regimes.py
@@ -44,24 +55,17 @@ Macro-Factor-Pricing-Engine/
 ### Universe Scaffold
 
 `src/macro_factor_pricing_engine/universe.py` defines the approved asset-class map.
-Each asset class is represented by an empty dictionary for now:
+The non-rates asset classes remain empty. The four rates buckets now have starter
+membership proxies marked `USER TO CONFIRM`, but every `approved_for_allocation` flag is
+`False`, so `has_tradeable_instruments()` still returns `False`.
 
-- `us_equities`
-- `global_developed_equities`
-- `emerging_market_equities`
 - `short_duration_government_bonds`
 - `intermediate_duration_government_bonds`
 - `long_duration_government_bonds`
 - `inflation_linked_bonds`
-- `investment_grade_credit`
-- `high_yield_credit`
-- `gold`
-- `broad_commodities`
-- `usd_proxy`
-- `cash`
 
-The helper `has_tradeable_instruments()` returns `False` until at least one asset class
-has an approved instrument.
+Membership is used only for analysis scope. Allocation approval remains separate and
+human-gated.
 
 ### Macro Regime Layer
 
@@ -170,6 +174,36 @@ project as structured Python records:
 
 It is not a live scorer. It codifies the decision-support policy for later backtesting.
 
+### Rates Analysis Loop
+
+The current thin slice is rates-only and runs in `analysis` mode. It does not trade.
+
+One command runs:
+
+```bash
+PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
+```
+
+The loop:
+
+1. loads the committed 2026-06-18 rates snapshot through `SnapshotSource`;
+2. consumes manually supplied `RegimeProbabilities`;
+3. scores the snapshot with Treasury Block A-D logic;
+4. sizes pending target weights across in-scope rates securities;
+5. diffs against a blank/persistent inventory;
+6. appends turnover rows to `.runtime/turnover_ledger.jsonl`;
+7. computes duration, DV01, bucket exposure, and concentration flags;
+8. prints a plain-language pending recommendation.
+
+`regime_input.py` is deliberately marked:
+
+```text
+STAGE 1 PLACEHOLDER - regime classification from data is the priority unbuilt module.
+```
+
+The future classifier must emit the same `RegimeProbabilities` interface. No validation,
+backtest, or golden-scenario module exists in this pass.
+
 ## Test Command
 
 ```bash
@@ -189,15 +223,21 @@ Current test coverage checks that:
 - policy blocks trading while tickers are empty;
 - regime detection lag budget exists in policy;
 - Treasury policy exists as structured data, not an autopilot scorer.
+- rates loop runs end-to-end on the committed snapshot;
+- recommendation remains pending;
+- weights sum to 1;
+- turnover ledger appends;
+- smoke check reproduces the hand-derived stance: overweight front-belly, underweight
+  long end, overweight 5y TIPS.
 
 ## Next Module
 
-The next planned module is the indicator layer:
+The next planned module is Stage 1 regime classification:
 
-- map public data series to growth, inflation, policy/liquidity, and risk appetite;
-- record source, cadence, release lag, and transform for every indicator;
-- define auditable signal transforms and thresholds;
-- enforce point-in-time availability before any signal can affect a regime score.
+- map public data series to the two-axis regime model;
+- emit `RegimeProbabilities` through the same interface currently filled manually;
+- enforce point-in-time availability and detection-lag charging;
+- keep the rates recommendation loop unchanged when the classifier is added.
 
 ## Changelog
 
@@ -205,6 +245,10 @@ The next planned module is the indicator layer:
   added fiscal/sovereign as a macro channel; kept valuation/positioning as a separate
   overlay; added `RegimeProbabilities`; added the Treasury policy as structured code;
   preserved empty ticker dictionaries and no-trade safety invariants.
+- `2026-06-23`: Added the rates-only end-to-end analysis loop using a committed
+  2026-06-18 snapshot, manual regime probabilities, Treasury scoring, target sizing,
+  turnover ledger, first-pass risk readout, and pending recommendation output. Stage 1
+  regime classification remains the priority unbuilt module.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.

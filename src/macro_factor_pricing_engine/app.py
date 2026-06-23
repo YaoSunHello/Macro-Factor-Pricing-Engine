@@ -1,159 +1,142 @@
-import streamlit as st
-import pandas as pd
+"""One-command rates analysis loop.
 
-# Mocking internal imports to ensure compliance with your described codebase
-# In production, replace these with your actual imports:
-# from macro_factor_pricing_engine import universe, regimes, policy
+Run with:
+    PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
+"""
 
-st.set_page_config(
-    page_title="Macro Factor Pricing Engine",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+from macro_factor_pricing_engine.data import SnapshotSource
+from macro_factor_pricing_engine.explain import explain_recommendation
+from macro_factor_pricing_engine.inventory import append_turnover_log, load_inventory
+from macro_factor_pricing_engine.rates_scorer import RatesScores, score_rates_snapshot
+from macro_factor_pricing_engine.regime_input import (
+    STAGE_1_PLACEHOLDER,
+    default_manual_regime_probabilities,
 )
+from macro_factor_pricing_engine.regimes import RegimeProbabilities
+from macro_factor_pricing_engine.risk import RiskReadout, compute_risk_readout
+from macro_factor_pricing_engine.sizing import TargetPortfolio, size_rates_targets
+from macro_factor_pricing_engine.universe import has_tradeable_instruments, rates_securities
 
-# -----------------------------------------------------------------------------
-# SIDEBAR & SYSTEM STATUS
-# -----------------------------------------------------------------------------
-st.sidebar.title("🛠 Engine Control Panel")
 
-# Mimicking universe.has_tradeable_instruments()
-# Replace with: HAS_TRADEABLE = universe.has_tradeable_instruments()
-HAS_TRADEABLE = False 
+@dataclass(frozen=True)
+class Recommendation:
+    """End-to-end pending recommendation output."""
 
-st.sidebar.markdown("### System Status")
-if not HAS_TRADEABLE:
-    st.sidebar.error("🔴 SYSTEM LOCKED: Non-Tradeable")
-    st.sidebar.caption("Reason: Asset-class universe ticker dictionary is empty. No live or paper allocations permitted.")
-else:
-    st.sidebar.success("🟢 SYSTEM ACTIVE: Tradeable")
+    mode: str
+    status: str
+    as_of: date
+    regime_probabilities: RegimeProbabilities
+    scores: RatesScores
+    target: TargetPortfolio
+    risk: RiskReadout
+    turnover_rows_appended: int
+    explanation: str
 
-st.sidebar.divider()
-st.sidebar.markdown("### Strategy Governance")
-st.sidebar.info(
-    "**Objective:** Maximize risk-adjusted return (Sharpe/Calmar).\n\n"
-    "⚠️ **Mandatory Rule:** No-lookahead data handling is strictly enforced."
-)
 
-# -----------------------------------------------------------------------------
-# MAIN DASHBOARD INTERFACE
-# -----------------------------------------------------------------------------
-st.title("📈 Macro-Factor Pricing Engine")
-st.subheader("Probabilistic Macro Regime & Governance Framework")
-
-tabs = st.tabs(["🌍 Macro Regimes", "🗂 Universe Scaffold", "📜 Policy & Approvals"])
-
-# --- TAB 1: MACRO REGIMES ---
-with tabs[0]:
-    st.header("Transmission Channels & Regime Layer")
-    
-    # Visualizing the 4 transmission channels
-    st.markdown("### Current Transmission Channel Metrics (Data Scoring Pending)")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Growth Factor", "Pending Data", delta=None)
-    col2.metric("Inflation Factor", "Pending Data", delta=None)
-    col3.metric("Policy / Liquidity", "Pending Data", delta=None)
-    col4.metric("Risk Appetite", "Pending Data", delta=None)
-    
-    st.divider()
-    
-    st.markdown("### Observable Regime Definitions")
-    regime_choice = st.selectbox(
-        "Select an Observable Regime to view Causal Dynamics:",
-        ["Goldilocks", "Reflation", "Stagflation", "Disinflationary Slowdown", "Crisis Liquidity Stress", "Policy Tightening Shock"]
+def run_analysis(
+    as_of: date = date(2026, 6, 18),
+    inventory_path: Path = Path(".runtime/inventory.json"),
+    turnover_log_path: Path = Path(".runtime/turnover_ledger.jsonl"),
+) -> Recommendation:
+    """Run the thin rates loop end-to-end."""
+    raw = SnapshotSource().load_raw(as_of=as_of)
+    regime_probabilities = default_manual_regime_probabilities()
+    scores = score_rates_snapshot(raw, regime_probabilities)
+    target = size_rates_targets(scores, regime_probabilities)
+    inventory = load_inventory(inventory_path)
+    dominant_regime = regime_probabilities.dominant_regime().name
+    rows_appended = append_turnover_log(
+        turnover_log_path,
+        as_of,
+        target,
+        inventory,
+        scores,
+        dominant_regime,
     )
-    
-    # Mock definitions mapping directly to regimes.py descriptions
-    regime_data = {
-        "Goldilocks": {"story": "High growth, low inflation. Ideal environment for risk assets.", "lead": "US Equities, High Yield Credit", "lag": "Cash, Short Duration Bonds"},
-        "Reflation": {"story": "Accelerating growth and rising inflation. Synchronized global expansion.", "lead": "Broad Commodities, EM Equities", "lag": "Long Duration Bonds"},
-        "Stagflation": {"story": "Stagnant or declining growth paired with sticky inflation pressures.", "lead": "Gold, Inflation-Linked Bonds", "lag": "US Equities, IG Credit"},
-        "Disinflationary Slowdown": {"story": "Growth is slowing down while inflation pressures subside.", "lead": "Long Duration Bonds, Cash", "lag": "Broad Commodities, High Yield"},
-        "Crisis Liquidity Stress": {"story": "Systemic shock causing sudden dash for cash and margin liquidations.", "lead": "USD Proxy, Cash", "lag": "All Risk Assets, Emerging Markets"},
-        "Policy Tightening Shock": {"story": "Central banks aggressively withdrawing liquidity faster than expected.", "lead": "Short Duration Bonds, Cash", "lag": "Equities, Gold"}
-    }
-    
-    selected_meta = regime_data[regime_choice]
-    
-    st.info(f"**Causal Story:** {selected_meta['story']}")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.success(f"🟢 **Expected Leading Assets:**\n{selected_meta['lead']}")
-    with c2:
-        st.warning(f"🔴 **Expected Lagging Assets:**\n{selected_meta['lag']}")
+    risk = compute_risk_readout(target)
+    explanation = explain_recommendation(regime_probabilities, scores, target, risk)
+    return Recommendation(
+        mode="analysis",
+        status="PENDING",
+        as_of=as_of,
+        regime_probabilities=regime_probabilities,
+        scores=scores,
+        target=target,
+        risk=risk,
+        turnover_rows_appended=rows_appended,
+        explanation=explanation,
+    )
 
-# --- TAB 2: UNIVERSE SCAFFOLD ---
-with tabs[1]:
-    st.header("Asset-Class Universe Setup")
-    st.markdown("Every asset category below must be explicitly populated and approved before capital deployment.")
-    
-    # Asset classes list from universe.py
-    asset_classes = [
-        "us_equities", "global_developed_equities", "emerging_market_equities",
-        "short_duration_government_bonds", "intermediate_duration_government_bonds",
-        "long_duration_government_bonds", "inflation_linked_bonds",
-        "investment_grade_credit", "high_yield_credit", "gold",
-        "broad_commodities", "usd_proxy", "cash"
-    ]
-    
-    # Building a status table
-    universe_df = pd.DataFrame({
-        "Asset Class Category": asset_classes,
-        "Assigned Tickers": ["{} (Empty Scaffold)" for _ in range(len(asset_classes))],
-        "Status": ["❌ Unapproved" for _ in range(len(asset_classes))]
-    })
-    
-    st.table(universe_df)
-    
-    st.divider()
-    st.subheader("Populate Ticker Dictionary (Human-Input Workspace)")
-    
-    with st.form("ticker_form"):
-        target_class = st.selectbox("Select Asset Class to Populate", asset_classes)
-        ticker_input = st.text_input("Enter Tickers (comma separated, e.g., SPY, IVV)", "")
-        submitted = st.form_submit_with_button("Submit Tickers for Verification")
-        
-        if submitted:
-            if ticker_input.strip() == "":
-                st.error("Please enter at least one valid ticker symbol.")
-            else:
-                st.warning(f"Submission Received! Asset class `{target_class}` updated with `{ticker_input}`. This change is currently **PENDING** and requires human confirmation in the Policy Hub.")
 
-# --- TAB 3: POLICY & APPROVALS ---
-with tabs[2]:
-    st.header("Strategy Governance & Audit Log")
-    
-    st.markdown("### Operational Confirmation Queue")
-    st.write("Human-in-the-loop confirmation is strictly required to move the portfolio from a pending adjustment state.")
-    
-    # Active system triggers listed in policy.py
-    st.markdown("#### System Triggers Monitor")
-    col_t1, col_t2, col_t3 = st.columns(3)
-    col_t1.button("📅 Scheduled Monthly Review", disabled=True)
-    col_t2.button("🔄 Regime Transition Alert", disabled=True)
-    col_t3.button("⚡ Policy Shock Event", disabled=True)
-    
-    st.markdown("#### Triggers Requiring Manual Sign-off")
-    
-    # Interactive demo of your human_input_pending rule
-    with st.expander("⚠️ Trigger: instrument_universe_change / human_input_pending", expanded=True):
-        st.write("**Details:** A user has requested a change to the underlying asset universe dictionaries.")
-        st.code("Proposed Change: Map 'us_equities' -> ['SPY', 'QQQ']", language="python")
-        
-        c_btn1, c_btn2, _ = st.columns([1, 1, 4])
-        if c_btn1.button("✅ Approve & Initialize Weights", type="primary"):
-            st.balloons()
-            st.success("Change authorized. System updated.")
-        if c_btn2.button("❌ Reject Request"):
-            st.error("Change rejected. System reverted to safe state.")
-            
-    st.divider()
-    st.subheader("🔒 Risk Controls Sandbox (Module 4 Placeholder)")
-    st.caption("The features below are locked until the risk model configuration and implementation pass are completed.")
-    
-    disabled_cols = st.columns(4)
-    disabled_cols[0].text_input("Vol Target (%)", value="10.0", disabled=True)
-    disabled_cols[1].text_input("Concentration Cap (%)", value="25.0", disabled=True)
-    disabled_cols[2].text_input("Turnover Budget ($)", value="10,000", disabled=True)
-    disabled_cols[3].text_input("Risk Framework", value="Pending Module 4", disabled=True)
+def format_recommendation(recommendation: Recommendation) -> str:
+    """Format a recommendation for CLI output."""
+    regime_lines = "\n".join(
+        f"  - {regime.name}: {weight:.0%}"
+        for regime, weight in recommendation.regime_probabilities.weights.items()
+    )
+    target_lines = "\n".join(
+        f"  - {weight.ticker} ({weight.bucket}): {weight.weight:.2%}"
+        for weight in recommendation.target.weights
+    )
+    bucket_lines = "\n".join(
+        f"  - {bucket}: {exposure:.2%}"
+        for bucket, exposure in recommendation.risk.bucket_exposure.items()
+    )
+    scoped = ", ".join(str(security["ticker"]) for security in rates_securities())
+    trade_gate = "closed" if not has_tradeable_instruments() else "open"
+    return "\n".join(
+        (
+            "Macro Factor Pricing Engine - Rates Analysis",
+            f"Mode: {recommendation.mode}",
+            f"Status: {recommendation.status}",
+            f"As of: {recommendation.as_of.isoformat()}",
+            f"Trade gate: {trade_gate}",
+            "",
+            STAGE_1_PLACEHOLDER,
+            "",
+            "Scoped rates securities:",
+            f"  {scoped}",
+            "",
+            "Manual regime probabilities:",
+            regime_lines,
+            "",
+            "Scores:",
+            f"  Cycle: {recommendation.scores.cycle_score}",
+            f"  Valuation: {recommendation.scores.valuation_score}",
+            f"  Fiscal veto: {recommendation.scores.fiscal_veto}",
+            f"  Overlay modifier: {recommendation.scores.overlay_modifier}",
+            f"  Composite signal: {recommendation.scores.composite_signal}",
+            f"  Fired triggers: {', '.join(recommendation.scores.fired_triggers)}",
+            "",
+            "Target portfolio:",
+            target_lines,
+            "",
+            "Risk readout:",
+            f"  Portfolio duration: {recommendation.risk.portfolio_duration}",
+            f"  DV01 per $1mm notional: {recommendation.risk.dv01_per_1mm_notional}",
+            f"  Concentration cap: {recommendation.risk.concentration_cap:.0%}",
+            "  Bucket exposure:",
+            bucket_lines,
+            f"  Cap breaches: {recommendation.risk.cap_breaches or 'none'}",
+            "",
+            f"Turnover rows appended: {recommendation.turnover_rows_appended}",
+            "",
+            "Explanation:",
+            recommendation.explanation,
+        )
+    )
+
+
+def main() -> None:
+    recommendation = run_analysis()
+    print(format_recommendation(recommendation))
+
+
+if __name__ == "__main__":
+    main()

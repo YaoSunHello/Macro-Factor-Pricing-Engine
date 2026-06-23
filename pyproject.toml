@@ -12,3 +12,7 @@ dependencies = []
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+macro_factor_pricing_engine = ["data/*.json"]
+"macro_factor_pricing_engine.data" = ["*.json"]

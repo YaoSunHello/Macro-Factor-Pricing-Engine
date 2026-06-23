@@ -19,6 +19,13 @@
   strategy policy.
 - Wrote `TreasuryPolicy.md` into the project as structured Python records in
   `treasury_policy.py`.
+- Added a thin rates-only end-to-end analysis loop:
+  committed 2026-06-18 snapshot -> manual `RegimeProbabilities` -> Treasury Block A-D
+  scoring -> target sizing -> turnover ledger -> first-pass duration/DV01 readout ->
+  pending recommendation output.
+- Deliberately did not add validation, backtest, golden-scenario, live-data, or Stage 1
+  classifier modules. Stage 1 regime classification remains the priority unbuilt module
+  and must emit the same `RegimeProbabilities` interface.
 
 
 Areas to Consider Strengthening
