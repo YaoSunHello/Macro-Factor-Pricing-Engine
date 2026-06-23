@@ -1,6 +1,10 @@
 # Macro-Factor-Pricing-Engine
 The model builds a probabilistic framework to understand asset price movements through macroeconomic drivers instead of a deterministic prediction.
 
+## Documentation
+
+Full project documentation is available at [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).
+
 ## Current Implementation Status
 
 The first implementation pass is complete. The repository now contains a small Python
