@@ -223,98 +223,113 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 
 ## Prompt
-# Macro-Factor-Pricing-Engine — Module: Two-Axis Regime Refactor
+# Macro-Factor-Pricing-Engine — Module: End-to-End Framework Loop (Asset Class #1: Rates)
 
 ## Context
-This repo already has a governance-first scaffold: `universe.py` (approved
-asset-class map, all ticker dicts empty, `has_tradeable_instruments()` returns
-False), `regimes.py` (six macro-state definitions over four transmission
-channels: growth, inflation, policy/liquidity, risk appetite), `policy.py`
-(objective, pending-only human input, no-lookahead, strategy triggers), and a
-unit-test suite. The system is intentionally NOT tradeable.
+Governance-first repo with: universe scaffold, two-axis regimes
+(MacroState x CausalMechanism, soft RegimeProbabilities), policy.py, and
+treasury_policy.py (Block A-D rules ported from TreasuryPolicy.md). Existing
+invariants MUST hold.
 
-Preserve every existing safety invariant. This module is an architectural
-refactor of the regime layer plus two channel additions. Do NOT build the live
-data/indicator scoring layer, the allocation engine, or Module 4 risk model.
+This prompt builds the FULL recommendation loop for RATES ONLY, as a THIN
+end-to-end slice — first-pass modules wired together so the system produces a
+real, explained portfolio recommendation, not production-grade components.
+
+Two hard design decisions for this pass:
+- STAGE 1 (regime classification from data) is NOT built. The regime is SUPPLIED
+  MANUALLY as a RegimeProbabilities input. Mark this everywhere as the priority
+  module to fill next; the loop must consume regime probs through the SAME
+  interface a future classifier would emit, so it drops in without refactor.
+- NO validation / backtest / golden-scenario module. Do not build one; remove any
+  validation-module stub if present. Keep ONLY consistency unit tests.
+
+Runs in analysis/paper mode on a committed data SNAPSHOT. Nothing trades.
 
 ## Objective
-Regime is currently single-axis (macro state). Add a second, orthogonal axis —
-the causal MECHANISM — because state tells you what growth/inflation are doing
-and mechanism tells you why, and the "why" is what disambiguates positioning
-when the state is identical. Restructure regime records to (a) carry both axes,
-(b) let mechanism modify the asset map, and (c) support probabilistic (soft)
-assignment so transitions are a blended state, not a hard flip.
+From a BLANK portfolio and a fixed scope of input securities, the loop:
+load snapshot data -> take manual regime input -> score (treasury_policy) ->
+size target weights -> diff vs inventory -> log turnover -> compute risk readout
+-> emit an explained PENDING recommendation. One command runs it and prints output.
 
-## Required changes
+## Components
 
-### regimes.py
-1. `MacroState` enum: the existing six (goldilocks, reflation, stagflation,
-   disinflationary_slowdown, crisis_liquidity_stress, policy_tightening_shock).
-2. `CausalMechanism` enum: peg_or_promise_break, deliberate_policy_disruption,
-   leverage_institutional_breakdown, and a benign `cyclical_no_acute_mechanism`
-   for non-crisis states.
-3. A `Regime` is the pair (state, mechanism) plus: causal_story,
-   leading_assets, lagging_assets, observable_trigger_names, and an
-   `asset_map_overrides` field where mechanism modifies the base state's map.
-   Define ONLY the meaningful pairs — not the full 6×4 grid. Mechanism defaults
-   to `cyclical_no_acute_mechanism` for benign states.
-4. Make the override do real work with this concrete case used as a test anchor:
-   - stagflation × deliberate_policy_disruption → long_duration_government_bonds
-     moves to strong underweight (term-premium/fiscal risk dominates);
-   - stagflation × leverage_institutional_breakdown → long_duration_government_bonds
-     can rally (flight-to-quality once policy responds).
-   Same state, opposite duration call — this is the reason the axis exists.
-5. Add a `RegimeProbabilities` structure: a mapping of Regime → weight, weights
-   sum to 1.0 (validate, with float tolerance). The eventual indicator layer
-   emits this; the allocation layer will blend on it. Provide a helper to flag a
-   transition when no single regime holds > 0.6 of the mass.
-6. Add `fiscal_sovereign` to the transmission-channel set (it is a genuine
-   channel, not reducible to policy or risk — see gilts 2022, US term premium).
-7. Do NOT add valuation/positioning as a channel. It is a timing OVERLAY, not a
-   macro channel. Create a separate `ValuationOverlay` placeholder concept,
-   parallel to regimes, documented as "owned outside the macro→asset mapping;
-   gates entry timing." Leave its scoring unimplemented.
-8. Label leading/lagging asset lists as heuristic priors (a field or explicit
-   docstring flag), since each regime has only ~2–4 historical instances — these
-   are theory-priors, not fitted estimates.
+### 1. universe.py — scope the securities
+- Populate the four rates buckets (short/intermediate/long-duration govt, ILBs)
+  with a STARTER list of liquid proxies, each marked "# USER TO CONFIRM", schema:
+  { ticker, bucket, role, duration_proxy_years, approved_for_allocation: False }.
+- Keep MEMBERSHIP vs approved_for_allocation distinct. has_tradeable_instruments()
+  stays False. The engine may only build from securities in this scope.
 
-### universe.py
-- No tickers. `has_tradeable_instruments()` still returns False.
-- Add an optional `scoring_module` reference per asset class (None for now) so a
-  future rates module can attach to short_/intermediate_/long_duration_government
-  _bonds and inflation_linked_bonds. Seam only; wire nothing.
+### 2. data/ — pluggable source + committed snapshot
+- DataSource interface with an `as_of` arg enforcing no-lookahead (no obs dated > as_of).
+- SnapshotSource: reads a COMMITTED fixture of the 2026-06-18 tape (10y~4.46,
+  2y~4.19, 5y BE~2.31, ACMTP10~0.73, core PCE 3.3, CPI 4.2, plus the other §3
+  signals). FredSource: a stub behind the same interface, allowed-missing, for later.
+- Returns clean aligned RAW series only; derived metrics belong to the scorer.
 
-### policy.py
-- Preserve all invariants (pending-only human input, no-lookahead, False-by-default).
-- Add `regime_detection_lag_budget` to the pending Module-4 controls: the signal
-  layer will call turns late; the backtest must be charged for detection lag
-  rather than assuming clean timing.
-- Add a `benchmark_or_liability_reference` field marked pending/unconfirmed, and
-  a note that the Sharpe/Calmar objective is currently asset-only.
-- `regime_transition` trigger fires on a probability-mass shift past threshold
-  (per RegimeProbabilities), not a hard state flip.
+### 3. regime input (STAGE 1 STUB)
+- A function/config that supplies current RegimeProbabilities MANUALLY
+  (default fixture: stagflation x deliberate_policy_disruption, high mass).
+- Big inline marker: "STAGE 1 PLACEHOLDER — regime classification from data is the
+  priority unbuilt module; same RegimeProbabilities interface a classifier will emit."
 
-### tests
-Extend the suite to assert:
-- every defined (state, mechanism) pair is internally consistent and only
-  meaningful pairs exist;
-- the stagflation override flips long-duration positioning between the two
-  mechanisms;
-- RegimeProbabilities reject weights that don't sum to 1.0; transition helper
-  triggers below the 0.6 threshold;
-- valuation overlay is NOT in the channel set;
-- `has_tradeable_instruments()` is still False;
-- `regime_detection_lag_budget` exists in policy.
+### 4. scorer (wire treasury_policy.py to data)
+- Compute derived metrics (real policy rate, 3m-ann vs y/y, TP percentile,
+  breakeven-vs-realised, bid-to-cover z-score, momentum MAs).
+- Run Block A-D -> Cycle score, Valuation score, Block C gate, overlay modifier
+  -> composite signal + list of fired triggers, conditioned on the regime input.
+
+### 5. sizing
+- §6 matrix + an EXPLICIT, configurable sizing convention (e.g. score -> bucket
+  weight, with concentration caps) -> target weights across the in-scope securities,
+  from blank. Weights sum to 1.
+- Steepener / curve trades are RELATIVE positions: surface as a flagged note,
+  do NOT force into the weight vector.
+
+### 6. inventory log
+- Persistent portfolio snapshot (positions, weights, bucket, duration). Starts blank.
+
+### 7. turnover / allocation log
+- Append-only ledger: every recommended change (date, security, from->to weight,
+  composite signal, fired trigger, regime, reason). Never overwrites.
+
+### 8. risk readout (first-pass only)
+- From the current/target snapshot: portfolio duration & DV01, per-bucket exposure,
+  concentration vs caps, simple flag if a cap is breached. (Vol target / full risk
+  model remain pending — do not build.)
+
+### 9. explainability
+- Every recommendation carries a plain-language "why": regime (+ probs), Cycle &
+  Valuation scores, which block/trigger drove it, overlay effect, sizing rationale.
+
+### 10. orchestrator (app.py)
+- One entry point runs steps 2->9 end-to-end and PRINTS: regime used, scores,
+  target portfolio, turnover vs blank, risk readout, and the explanation.
+- Output is a PENDING adjustment (policy.py: human input creates pending only,
+  never auto-moves). mode = "analysis"; live trading disabled.
+
+## Governance (preserve)
+- Pending-only recommendations; human-gated; no execution.
+- has_tradeable_instruments() stays False; no approved_for_allocation = True.
+- No-lookahead enforced at the data interface.
+
+## Tests (consistency / smoke ONLY — not validation)
+- Loop runs end-to-end on the snapshot and emits a recommendation.
+- Gate stays False; recommendation is pending; weights sum to 1; turnover log appends.
+- SMOKE check (label it as wiring, NOT validation, NOT edge): snapshot + the default
+  stagflation x deliberate-policy regime reproduces the hand-derived stance
+  (OW belly, UW long-end, OW 5y TIPS). State in the test docstring this only proves
+  the loop reproduces a known hand calc, not that the policy is correct.
 
 ## Constraints
-- Minimal, clean diff. No dead code, no speculative abstraction.
-- Follow existing package/style conventions. Update README and Notes with the
-  new two-axis model and a CHANGELOG entry.
+- Minimal clean diff; first-pass simplicity; no speculative abstraction; follow
+  existing conventions. Update README + Notes (the manual-regime stub, dropped
+  validation, the loop) + CHANGELOG.
 
 ## Out of scope (do not build)
-Live data ingestion, indicator scoring functions, the allocation/optimization
-engine, Module 4 risk model implementation, any ticker population.
+Stage 1 classification, any validation/backtest/golden-scenario module, vol-target/
+full risk model, other asset classes, live trading, real-feed wiring beyond the stub.
 
 ## Deliverable summary
-End with: the (state × mechanism) matrix you defined, which pairs you left
-undefined and why, and confirmation all tests pass.
+End with: the securities in scope, a sample end-to-end run (regime -> scores ->
+target portfolio -> risk -> explanation), and which tests pass.
