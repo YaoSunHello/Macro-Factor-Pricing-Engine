@@ -323,111 +323,78 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 ## Prompt
 # Macro-Factor-Pricing-Engine — Module: End-to-End Framework Loop (Asset Class #1: Rates)
 
-## Context
-Governance-first repo with: universe scaffold, two-axis regimes
-(MacroState x CausalMechanism, soft RegimeProbabilities), policy.py, and
-treasury_policy.py (Block A-D rules ported from TreasuryPolicy.md). Existing
-invariants MUST hold.
+TASK
+Repopulate the asset-class universe in
+  src/macro_factor_pricing_engine/universe.py
+from empty/US-placeholder state to a UK-retail-tradable UCITS universe.
+Do NOT change any other file. Do NOT flip any approval flag to True.
 
-This prompt builds the FULL recommendation loop for RATES ONLY, as a THIN
-end-to-end slice — first-pass modules wired together so the system produces a
-real, explained portfolio recommendation, not production-grade components.
+WHY (context — do not remove this design intent)
+The current rates proxies (SHV, SHY, IEF, TLT, VGLT, TIP, VTIP, VGIT) are
+US-domiciled ETFs. Under PRIIPs/KID rules a UK retail client cannot buy these
+on any FCA platform (no Key Information Document → order blocked). They must be
+replaced with the UCITS (Irish-domiciled, LSE-listed) equivalent. Equity,
+credit, gold, commodity, usd_proxy and cash buckets are currently empty and
+must be filled.
 
-Two hard design decisions for this pass:
-- STAGE 1 (regime classification from data) is NOT built. The regime is SUPPLIED
-  MANUALLY as a RegimeProbabilities input. Mark this everywhere as the priority
-  module to fill next; the loop must consume regime probs through the SAME
-  interface a future classifier would emit, so it drops in without refactor.
-- NO validation / backtest / golden-scenario module. Do not build one; remove any
-  validation-module stub if present. Keep ONLY consistency unit tests.
+HARD CONSTRAINTS (these will be tested — see ACCEPTANCE)
+1. Keep these exported symbols and their existing signatures unchanged:
+   ASSET_CLASS_UNIVERSE, ASSET_CLASS_SCORING_MODULES, asset_classes(),
+   scoring_module_for(), has_tradeable_instruments(), rates_securities().
+   (sizing.py, app.py, __init__.py import from here — do not break them.)
+2. has_tradeable_instruments() MUST still return False after your change.
+   Membership ≠ approval: set approved_for_allocation=False on EVERY security.
+3. ASSET_CLASS_SCORING_MODULES must stay keyed by the same set of asset classes
+   as ASSET_CLASS_UNIVERSE (it is derived from it — keep that derivation).
+4. rates_securities() must remain non-empty and cover the four rate buckets.
+5. The four rate-bucket names must stay exactly:
+   short_duration_government_bonds, intermediate_duration_government_bonds,
+   long_duration_government_bonds, inflation_linked_bonds.
 
-Runs in analysis/paper mode on a committed data SNAPSHOT. Nothing trades.
+SCHEMA per security (extend the existing one, don't invent a parallel format)
+  ticker, bucket, role, ccy, domicile, listing, isin, replaces,
+  approved_for_allocation (always False),
+  duration_proxy_years (rates buckets only)
+- isin is the cross-platform identifier (tickers vary by currency/acc-dist line).
+- replaces = the US proxy this UCITS line stands in for (None for new buckets).
+- Add a module-level _sec(...) helper to build records and keep this DRY.
 
-## Objective
-From a BLANK portfolio and a fixed scope of input securities, the loop:
-load snapshot data -> take manual regime input -> score (treasury_policy) ->
-size target weights -> diff vs inventory -> log turnover -> compute risk readout
--> emit an explained PENDING recommendation. One command runs it and prints output.
+UNIVERSE TO POPULATE (representative tickers; one role line each)
+us_equities:                 CSPX (S&P500 acc), VUSA (S&P500 dist)
+global_developed_equities:   SWDA (MSCI World acc), VEVE (FTSE Dev dist)
+emerging_market_equities:    EIMI (MSCI EM IMI acc), VFEM (FTSE EM dist)
+short_duration_govt_bonds:   IB01 (0-1yr UST, dur≈0.4, replaces SHV),
+                             IBTA (1-3yr UST, dur≈1.9, replaces SHY)
+intermediate_duration_govt:  IBTM (7-10yr UST, dur≈7.5, replaces IEF)
+long_duration_govt_bonds:    IDTL (20+yr UST acc, dur≈16.5, replaces TLT),
+                             DTLA (20+yr UST dist, dur≈16.5, replaces VGLT)
+inflation_linked_bonds:      ITPS (broad TIPS, dur≈6.5, replaces TIP)
+investment_grade_credit:     LQDE (USD IG corp)
+high_yield_credit:           IHYU (USD HY corp)
+gold:                        SGLN (iShares Physical Gold), SGLD (Invesco)
+broad_commodities:           CMOD (Invesco BCOM), ICOM (iShares div. cmdty swap)
+usd_proxy:                   IB01 (USD cash-rate proxy, dur≈0.4)
+cash:                        IGLS (GBP 0-5yr Gilts near-cash, dur≈2.3, ccy GBP)
 
-## Components
+LEAVE AS EXPLICIT TODO (do NOT guess these — add a code comment, no record)
+- intermediate bucket: no clean single-line UCITS twin for VGIT's 3-10y blend.
+- inflation_linked: short-TIPS / 5y-breakeven twin for VTIP unverified.
+- Any ISIN you are not certain of: set isin=None with a "# TODO confirm" comment
+  rather than inventing one.
 
-### 1. universe.py — scope the securities
-- Populate the four rates buckets (short/intermediate/long-duration govt, ILBs)
-  with a STARTER list of liquid proxies, each marked "# USER TO CONFIRM", schema:
-  { ticker, bucket, role, duration_proxy_years, approved_for_allocation: False }.
-- Keep MEMBERSHIP vs approved_for_allocation distinct. has_tradeable_instruments()
-  stays False. The engine may only build from securities in this scope.
+ADD: platform-capability matrix (single source of truth, NOT per-security)
+  PLATFORM_ACCESS: dict[platform -> dict[capability -> bool]]
+  platforms in scope: ibkr_uk, trading212, hargreaves_lansdown, aj_bell,
+    investengine
+  capabilities: ucits_etfs, us_listed_stocks, us_domiciled_etfs(=False all),
+    futures, fx_spot, options, cfds
+  Key asymmetry to encode: only ibkr_uk has futures=True and fx_spot=True.
+  trading212 has cfds=True; the rest are ucits-only.
+  Add helpers: platforms() -> tuple[str,...],
+               platform_supports(platform, capability) -> bool
 
-### 2. data/ — pluggable source + committed snapshot
-- DataSource interface with an `as_of` arg enforcing no-lookahead (no obs dated > as_of).
-- SnapshotSource: reads a COMMITTED fixture of the 2026-06-18 tape (10y~4.46,
-  2y~4.19, 5y BE~2.31, ACMTP10~0.73, core PCE 3.3, CPI 4.2, plus the other §3
-  signals). FredSource: a stub behind the same interface, allowed-missing, for later.
-- Returns clean aligned RAW series only; derived metrics belong to the scorer.
-
-### 3. regime input (STAGE 1 STUB)
-- A function/config that supplies current RegimeProbabilities MANUALLY
-  (default fixture: stagflation x deliberate_policy_disruption, high mass).
-- Big inline marker: "STAGE 1 PLACEHOLDER — regime classification from data is the
-  priority unbuilt module; same RegimeProbabilities interface a classifier will emit."
-
-### 4. scorer (wire treasury_policy.py to data)
-- Compute derived metrics (real policy rate, 3m-ann vs y/y, TP percentile,
-  breakeven-vs-realised, bid-to-cover z-score, momentum MAs).
-- Run Block A-D -> Cycle score, Valuation score, Block C gate, overlay modifier
-  -> composite signal + list of fired triggers, conditioned on the regime input.
-
-### 5. sizing
-- §6 matrix + an EXPLICIT, configurable sizing convention (e.g. score -> bucket
-  weight, with concentration caps) -> target weights across the in-scope securities,
-  from blank. Weights sum to 1.
-- Steepener / curve trades are RELATIVE positions: surface as a flagged note,
-  do NOT force into the weight vector.
-
-### 6. inventory log
-- Persistent portfolio snapshot (positions, weights, bucket, duration). Starts blank.
-
-### 7. turnover / allocation log
-- Append-only ledger: every recommended change (date, security, from->to weight,
-  composite signal, fired trigger, regime, reason). Never overwrites.
-
-### 8. risk readout (first-pass only)
-- From the current/target snapshot: portfolio duration & DV01, per-bucket exposure,
-  concentration vs caps, simple flag if a cap is breached. (Vol target / full risk
-  model remain pending — do not build.)
-
-### 9. explainability
-- Every recommendation carries a plain-language "why": regime (+ probs), Cycle &
-  Valuation scores, which block/trigger drove it, overlay effect, sizing rationale.
-
-### 10. orchestrator (app.py)
-- One entry point runs steps 2->9 end-to-end and PRINTS: regime used, scores,
-  target portfolio, turnover vs blank, risk readout, and the explanation.
-- Output is a PENDING adjustment (policy.py: human input creates pending only,
-  never auto-moves). mode = "analysis"; live trading disabled.
-
-## Governance (preserve)
-- Pending-only recommendations; human-gated; no execution.
-- has_tradeable_instruments() stays False; no approved_for_allocation = True.
-- No-lookahead enforced at the data interface.
-
-## Tests (consistency / smoke ONLY — not validation)
-- Loop runs end-to-end on the snapshot and emits a recommendation.
-- Gate stays False; recommendation is pending; weights sum to 1; turnover log appends.
-- SMOKE check (label it as wiring, NOT validation, NOT edge): snapshot + the default
-  stagflation x deliberate-policy regime reproduces the hand-derived stance
-  (OW belly, UW long-end, OW 5y TIPS). State in the test docstring this only proves
-  the loop reproduces a known hand calc, not that the policy is correct.
-
-## Constraints
-- Minimal clean diff; first-pass simplicity; no speculative abstraction; follow
-  existing conventions. Update README + Notes (the manual-regime stub, dropped
-  validation, the loop) + CHANGELOG.
-
-## Out of scope (do not build)
-Stage 1 classification, any validation/backtest/golden-scenario module, vol-target/
-full risk model, other asset classes, live trading, real-feed wiring beyond the stub.
-
-## Deliverable summary
-End with: the securities in scope, a sample end-to-end run (regime -> scores ->
-target portfolio -> risk -> explanation), and which tests pass.
+ACCEPTANCE
+- `python -m unittest tests.test_policy_and_regimes.UniverseTests` passes.
+- No bucket in ASSET_CLASS_UNIVERSE is empty.
+- has_tradeable_instruments() is False.
+- Module imports with no errors; sizing.py and app.py still import cleanly.
