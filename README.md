@@ -10,7 +10,8 @@ Full project documentation is available at [docs/PROJECT_DOCUMENTATION.md](docs/
 The first implementation pass is complete. The repository now contains a small Python
 package under `src/macro_factor_pricing_engine` with:
 
-- an asset-class universe scaffold with ticker dictionaries intentionally left empty;
+- a UK-retail UCITS/LSE-listed asset-class universe for research scope, with every
+  instrument still unapproved for allocation;
 - two-axis macro regime definitions: macro state plus causal mechanism;
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
@@ -22,8 +23,8 @@ package under `src/macro_factor_pricing_engine` with:
 - a focused unit test suite for the universe, regime, and policy records.
 
 The system is not tradeable yet. Asset classes are approved as categories, but no ticker
-can receive a paper or live allocation until the ticker dictionary is explicitly filled
-and approved.
+can receive a paper or live allocation until its `approved_for_allocation` flag is
+explicitly reviewed and switched on.
 
 Broker API setup is credential plumbing only. It does not create live broker clients,
 open sessions, or submit orders.
@@ -65,17 +66,36 @@ Macro-Factor-Pricing-Engine/
 ### Universe Scaffold
 
 `src/macro_factor_pricing_engine/universe.py` defines the approved asset-class map.
-The non-rates asset classes remain empty. The four rates buckets now have starter
-membership proxies marked `USER TO CONFIRM`, but every `approved_for_allocation` flag is
-`False`, so `has_tradeable_instruments()` still returns `False`.
+The empty/US ETF placeholder universe has been replaced with representative
+UK-retail-accessible UCITS or LSE-listed instruments. Every security remains marked
+`USER TO CONFIRM`, and every `approved_for_allocation` flag is `False`, so
+`has_tradeable_instruments()` still returns `False`.
 
-- `short_duration_government_bonds`
-- `intermediate_duration_government_bonds`
-- `long_duration_government_bonds`
-- `inflation_linked_bonds`
+Current research-scope buckets:
+
+- `us_equities`: `CSPX`, `VUSA`
+- `global_developed_equities`: `SWDA`, `VEVE`
+- `emerging_market_equities`: `EIMI`, `VFEM`
+- `short_duration_government_bonds`: `IB01`, `IBTA`
+- `intermediate_duration_government_bonds`: `IBTM`
+- `long_duration_government_bonds`: `IDTL`, `DTLA`
+- `inflation_linked_bonds`: `ITPS`
+- `investment_grade_credit`: `LQDE`
+- `high_yield_credit`: `IHYU`
+- `gold`: `SGLN`, `SGLD`
+- `broad_commodities`: `CMOD`, `ICOM`
+- `usd_proxy`: `IB01`
+- `cash`: `IGLS`
+
+Some ISINs remain explicit `TODO confirm` entries rather than guessed identifiers.
 
 Membership is used only for analysis scope. Allocation approval remains separate and
 human-gated.
+
+The module also records a platform capability matrix for `ibkr_uk`, `trading212`,
+`hargreaves_lansdown`, `aj_bell`, and `investengine`. The key distinction is that only
+`ibkr_uk` has `futures` and `fx_spot` enabled, `trading212` has `cfds` enabled, and all
+listed platforms keep `us_domiciled_etfs` disabled for UK retail suitability.
 
 ### Macro Regime Layer
 
@@ -261,7 +281,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 
 Current test coverage checks that:
 
-- approved asset classes exist but ticker dictionaries are blank;
+- approved asset classes exist with research-scope membership;
 - no tradeable instruments are available yet;
 - regimes have causal stories and observable triggers;
 - only meaningful state x mechanism pairs are defined;
@@ -303,6 +323,9 @@ The next planned module is Stage 1 regime classification:
 - `2026-06-23`: Added broker API credential setup metadata and environment readiness
   checks for Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and
   Plus500 without enabling live execution.
+- `2026-06-24`: Replaced empty/US-placeholder universe membership with a
+  UK-retail-accessible UCITS/LSE-listed research universe and platform capability
+  matrix while keeping all allocation approvals closed.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
