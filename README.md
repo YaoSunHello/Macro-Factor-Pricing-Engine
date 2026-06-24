@@ -372,82 +372,99 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 
 ## Prompt
-# Macro-Factor-Pricing-Engine — Module: End-to-End Framework Loop (Asset Class #1: Rates)
 TASK
-Create a new module:
-  src/macro_factor_pricing_engine/benchmarks.py
-holding the STRATEGIC overall-portfolio benchmark, defined per investment
-horizon. Do NOT modify any other file. This is Q1 (overall level) only —
-no sub-asset-class index map, no CPI+/cash+ targets (those are separate).
+Add a local web frontend + ingestion pipeline to the engine. Engine logic is
+READ-ONLY: the frontend renders existing output and stores pending signals; it
+does not compute regimes, scores, or weights. Build in two phases with a hard
+stop between them. Do not modify regimes.py, sizing.py, rates_scorer.py,
+policy.py, or universe.py. CLI (app.py) and existing tests must still pass.
 
-WHY (design intent — keep)
-The live portfolio initialises every asset-class weight to 0. The benchmark is
-the NEUTRAL strategic asset allocation (SAA) the engine tilts away FROM — it is
-a measurement reference, NOT the live portfolio, so its weights are non-zero.
-Horizon does not change benchmark mechanics; it sets the risk budget the blend
-encodes. Longer horizon carries more growth risk; a 1-quarter horizon cannot
-bear drawdown it may not recover, so its only valid benchmark is cash.
-This satisfies the SAMURAI benchmark test (specified-in-advance, appropriate,
-investable) because every bucket maps to an investable UCITS sleeve in
-universe.py.
+──────────────────────────────────────────────
+PHASE 1 — backend JSON seam + read-only regime dashboard
+──────────────────────────────────────────────
+1a. NEW: src/macro_factor_pricing_engine/api.py
+    A thin FastAPI app. ONE endpoint for Phase 1:
+      GET /api/state  -> serializes run_analysis() (from app.py) to JSON:
+        - regime_distribution: list of {state, mechanism, name, weight,
+          causal_story, leading_assets, lagging_assets} for EVERY regime in
+          RegimeProbabilities.weights (full distribution, NOT just dominant)
+        - dominant: {state, mechanism, name}
+        - is_transition: bool   (RegimeProbabilities.is_transition(0.6))
+        - max_mass: float       (the actual max weight, so UI can show "0.55")
+        - defined_pairs: the (state, mechanism) pairs in DEFINED_REGIME_PAIRS
+        - scores: {cycle, valuation, fiscal_veto, overlay_modifier,
+          composite, fired_triggers}
+        - target_weights: list of {ticker, bucket, weight}
+        - asset_classes: universe.asset_classes()  (for the grid axes)
+    Serialization helper goes in api.py only — do not add methods to the
+    frozen dataclasses.
 
-HARD CONSTRAINTS (will be tested)
-1. The weight keys in every horizon blend MUST be a subset of
-   universe.asset_classes() — import it and validate at module load. This keeps
-   bucket names a single source of truth even as universe.py gets populated.
-   If any key is not a valid asset class, raise ValueError at import.
-2. Each horizon's weights MUST sum to 1.0 within tolerance 1e-9.
-3. The four horizon keys are exactly: "10y", "5y", "1y", "1q".
-4. Do not import sizing/policy/regimes (avoid cycles); benchmarks.py depends
-   only on universe.py.
+1b. NEW: frontend/ (static SPA; Chart.js, no heavy framework needed)
+    Components:
+      - TWO-AXIS REGIME GRID: rows = MacroState (6), cols = CausalMechanism (4).
+        Shade each cell by its probability mass. The 8 cells in defined_pairs
+        are active; the other 16 are greyed (undefined — not a strategy yet).
+        Dominant cell highlighted.
+      - TRANSITION BANNER: when is_transition is true, show a clear
+        "TRANSITION — no regime holds >60% (max = {max_mass:.0%})" warning.
+      - DISTRIBUTION BAR: every regime with its weight, sorted desc — this is
+        the full distribution the rest of the engine discards.
+      - DOMINANT CARD: state + mechanism + causal_story + leading/lagging assets.
+      - SCORES PANEL: cycle/valuation/fiscal_veto/overlay_modifier/composite.
+        Label overlay_modifier "computed, not yet applied" (it is inert today).
+    Read-only. No inputs in Phase 1.
 
-SCHEMA
-  HORIZON_BENCHMARKS: dict[str, dict[str, float]]
-    horizon_key -> { asset_class_bucket: weight }
-  Omitted buckets are implicitly 0.0 (do not list zeros).
-  HORIZONS: tuple[str, ...] = ("10y", "5y", "1y", "1q")  # canonical order
+PHASE 1 ACCEPTANCE
+  - GET /api/state returns valid JSON; regime_distribution sums to ~1.0.
+  - Grid renders 6x4; exactly 8 active cells match DEFINED_REGIME_PAIRS.
+  - Transition banner toggles correctly against a forced low-mass fixture.
+  - Existing CLI + unittest suite still green.
+  *** STOP. Do not start Phase 2 until Phase 1 is reviewed. ***
 
-STARTER SAA BLENDS (defaults — flagged USER TO CONFIRM in the docstring;
-the horizon glide is the researched principle, the exact weights are policy)
+──────────────────────────────────────────────
+PHASE 2 — ingestion + local LLM draft + confirmation commit
+──────────────────────────────────────────────
+2a. NEW endpoints in api.py:
+      POST /api/ingest  -> accepts pdf | image | raw text
+        - pdf: extract text (pdfplumber/pypdf)
+        - image/photo: OCR (tesseract) to text
+        - text: passed through
+        Then call the local extractor; RETURN a DRAFT signal. Do NOT persist.
+      POST /api/signal/confirm -> takes a (possibly user-edited) draft and
+        writes it to a pending-signal store (jsonl, like turnover_ledger).
+        Status = PENDING. This is the only path that persists a signal.
 
-  "10y"  (Growth 0.80 / Defensive 0.20):
-    us_equities 0.30, global_developed_equities 0.28,
-    emerging_market_equities 0.12, gold 0.05, broad_commodities 0.05,
-    intermediate_duration_government_bonds 0.08,
-    long_duration_government_bonds 0.04,
-    investment_grade_credit 0.05, high_yield_credit 0.03
+2b. NEW: src/macro_factor_pricing_engine/discretionary_signal.py
+    Schema (the draft the extractor fills):
+      as_of, target_type ("regime"|"asset_class"), target, score[-1,1],
+      confidence[0,1], half_life_days, expires, corroboration[list],
+      rationale, and per-calibration-field anchor strings.
+    HARD RULES:
+      - target validated: if asset_class -> must be in universe.asset_classes();
+        if regime -> target must name a valid MacroState/CausalMechanism.
+      - Layer 1 (as_of, direction/sign) and Layer 2 (taxonomy mapping) are
+        extracted. Layer 3 (score, confidence, half_life) are PROPOSED with a
+        required anchor string each; never committed without confirm.
+      - effective contribution = score * confidence * decay(t); expired -> 0.
+      - routes to regime-probability evidence OR a Block-D positioning input.
+        MUST NOT import or write to sizing.py.
 
-  "5y"  (Growth ~0.57 / Defensive ~0.43):
-    us_equities 0.22, global_developed_equities 0.20,
-    emerging_market_equities 0.08, gold 0.04, broad_commodities 0.03,
-    short_duration_government_bonds 0.05,
-    intermediate_duration_government_bonds 0.12,
-    long_duration_government_bonds 0.05, inflation_linked_bonds 0.05,
-    investment_grade_credit 0.08, high_yield_credit 0.03, cash 0.05
+2c. LOCAL LLM (no data egress)
+    - Use Ollama with a local instruct model (configurable model name).
+    - Strict JSON output, validated against the schema; reject/repair invalid.
+    - Prompt the model to SEPARATE reproducible extraction from proposed
+      calibration, and to populate anchor strings (why this score, why this
+      confidence). No network calls to hosted APIs.
 
-  "1y"  (Growth ~0.30 / Defensive ~0.70):
-    us_equities 0.12, global_developed_equities 0.09,
-    emerging_market_equities 0.04, gold 0.05,
-    short_duration_government_bonds 0.30,
-    intermediate_duration_government_bonds 0.12,
-    inflation_linked_bonds 0.05, investment_grade_credit 0.08, cash 0.15
+2d. FRONTEND additions:
+    - Upload widget (pdf/photo) + manual-text box.
+    - Draft-review panel: shows extracted + proposed fields, ALL editable,
+      with anchor strings visible. CONFIRM / REJECT buttons.
+    - Pending-signals list with score/confidence/decay/expiry.
 
-  "1q"  (Capital preservation):
-    cash 1.00
-
-HELPERS (stable signatures)
-  horizons() -> tuple[str, ...]
-  benchmark_for(horizon: str) -> dict[str, float]      # full blend, KeyError if unknown
-  benchmark_weight(horizon: str, asset_class: str) -> float  # 0.0 if bucket absent
-  validate() -> None   # re-runs the sum-to-1 and valid-bucket checks; called at import
-
-ADD TESTS: tests/test_benchmarks.py
-  - all four HORIZONS present in HORIZON_BENCHMARKS
-  - every horizon's weights sum to 1.0 (abs tol 1e-9)
-  - every weight key is in universe.asset_classes()
-  - benchmark_weight returns 0.0 for an in-universe bucket omitted from a blend
-  - "1q" is 100% cash
-
-ACCEPTANCE
-  python -m unittest tests.test_benchmarks   passes
-  module imports with no error; no other file changed
+PHASE 2 ACCEPTANCE
+  - Ingesting a sample text returns a schema-valid draft, nothing persisted.
+  - Confirm writes exactly one PENDING row; reject writes nothing.
+  - Invalid target (bucket not in universe) is rejected before draft returns.
+  - No module imports sizing.py from the signal path.
+  - No outbound network call in the ingest path (local model only).
