@@ -3,8 +3,6 @@ const stateNames = {
   reflation: "Reflation",
   stagflation: "Stagflation",
   disinflationary_slowdown: "Disinflationary slowdown",
-  crisis_liquidity_stress: "Crisis liquidity stress",
-  policy_tightening_shock: "Policy tightening shock",
 };
 
 const mechanismNames = {

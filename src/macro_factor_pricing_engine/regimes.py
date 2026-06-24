@@ -22,8 +22,6 @@ class MacroState(StrEnum):
     REFLATION = "reflation"
     STAGFLATION = "stagflation"
     DISINFLATIONARY_SLOWDOWN = "disinflationary_slowdown"
-    CRISIS_LIQUIDITY_STRESS = "crisis_liquidity_stress"
-    POLICY_TIGHTENING_SHOCK = "policy_tightening_shock"
 
 
 class CausalMechanism(StrEnum):
@@ -143,6 +141,18 @@ class ValuationOverlay:
 
 
 @dataclass(frozen=True)
+class MacroStateProfile:
+    """State-level structural descriptor separate from mechanism playbooks."""
+
+    state: MacroState
+    growth_direction: str
+    inflation_direction: str
+    typical_root_causes: tuple[str, ...]
+    typical_drivers: tuple[str, ...]
+    key_indicators: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class RegimeProbabilities:
     """Soft assignment across defined regimes."""
 
@@ -165,6 +175,126 @@ class RegimeProbabilities:
     def is_transition(self, threshold: float = 0.6) -> bool:
         """Flag a transition when no single regime holds enough probability mass."""
         return max(self.weights.values()) <= threshold
+
+
+MACRO_STATE_PROFILES: Mapping[MacroState, MacroStateProfile] = MappingProxyType(
+    {
+        MacroState.GOLDILOCKS: MacroStateProfile(
+            state=MacroState.GOLDILOCKS,
+            growth_direction="stable_positive",
+            inflation_direction="low",
+            typical_root_causes=("productivity boom", "supply-side expansion"),
+            typical_drivers=("tech adoption", "global trade expansion"),
+            key_indicators=(
+                "positive output gap closing without unit-labor-cost spikes",
+            ),
+        ),
+        MacroState.REFLATION: MacroStateProfile(
+            state=MacroState.REFLATION,
+            growth_direction="accelerating",
+            inflation_direction="rising",
+            typical_root_causes=("cyclical demand-pull", "fiscal expansion"),
+            typical_drivers=(
+                "post-recession inventory rebuild",
+                "infrastructure spend",
+            ),
+            key_indicators=("credit-creation velocity", "steepening yield curve"),
+        ),
+        MacroState.STAGFLATION: MacroStateProfile(
+            state=MacroState.STAGFLATION,
+            growth_direction="decelerating",
+            inflation_direction="sticky_high",
+            typical_root_causes=(
+                "supply-side shock",
+                "structural policy distortion",
+            ),
+            typical_drivers=(
+                "energy blockades",
+                "structural de-globalization",
+            ),
+            key_indicators=(
+                "collapsing profit margins alongside rising input/commodity prices",
+            ),
+        ),
+        MacroState.DISINFLATIONARY_SLOWDOWN: MacroStateProfile(
+            state=MacroState.DISINFLATIONARY_SLOWDOWN,
+            growth_direction="decelerating",
+            inflation_direction="falling",
+            typical_root_causes=(
+                "cyclical demand exhaustion",
+                "post-bubble deleveraging",
+            ),
+            typical_drivers=("end of credit cycle", "monetary policy biting"),
+            key_indicators=(
+                "rising inventory-to-sales ratio",
+                "widening credit spreads",
+            ),
+        ),
+    }
+)
+
+
+TRANSITION_TIME_STEP = "monthly"
+TRANSITION_MATRIX_IS_HEURISTIC = True
+TRANSITION_TIER_KEY = (
+    "adjacent~0.15, diagonal~0.05, reversal~0.03, stay=1-sum(off-diagonals); "
+    "economic asymmetries override tiers"
+)
+
+TRANSITION_MATRIX: Mapping[MacroState, Mapping[MacroState, float]] = MappingProxyType(
+    {
+        MacroState.GOLDILOCKS: MappingProxyType(
+            {
+                MacroState.GOLDILOCKS: 0.67,
+                MacroState.REFLATION: 0.15,
+                MacroState.STAGFLATION: 0.03,
+                MacroState.DISINFLATIONARY_SLOWDOWN: 0.15,
+            }
+        ),
+        MacroState.REFLATION: MappingProxyType(
+            {
+                MacroState.GOLDILOCKS: 0.10,
+                MacroState.REFLATION: 0.70,
+                MacroState.STAGFLATION: 0.15,
+                MacroState.DISINFLATIONARY_SLOWDOWN: 0.05,
+            }
+        ),
+        MacroState.STAGFLATION: MappingProxyType(
+            {
+                MacroState.GOLDILOCKS: 0.03,
+                MacroState.REFLATION: 0.05,
+                MacroState.STAGFLATION: 0.77,
+                MacroState.DISINFLATIONARY_SLOWDOWN: 0.15,
+            }
+        ),
+        MacroState.DISINFLATIONARY_SLOWDOWN: MappingProxyType(
+            {
+                MacroState.GOLDILOCKS: 0.15,
+                MacroState.REFLATION: 0.03,
+                MacroState.STAGFLATION: 0.02,
+                MacroState.DISINFLATIONARY_SLOWDOWN: 0.80,
+            }
+        ),
+    }
+)
+
+TRANSITION_MATRIX_NOTES: tuple[str, ...] = (
+    "Slowdown is stickiest at 0.80; main escape is recovery to Goldilocks.",
+    "Reflation to Stagflation is 0.15 versus Stagflation to Reflation at 0.05.",
+)
+
+MECHANISM_ROW_MODIFIERS: Mapping[CausalMechanism, Mapping[MacroState, float]] = MappingProxyType(
+    {
+        CausalMechanism.PEG_OR_PROMISE_BREAK: MappingProxyType({}),
+        CausalMechanism.DELIBERATE_POLICY_DISRUPTION: MappingProxyType({}),
+        CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN: MappingProxyType(
+            {
+                MacroState.DISINFLATIONARY_SLOWDOWN: 3.0,
+            }
+        ),
+        CausalMechanism.CYCLICAL_NO_ACUTE_MECHANISM: MappingProxyType({}),
+    }
+)
 
 
 REGIME_DEFINITIONS: tuple[Regime, ...] = (
@@ -287,11 +417,12 @@ REGIME_DEFINITIONS: tuple[Regime, ...] = (
         ),
     ),
     Regime(
-        state=MacroState.CRISIS_LIQUIDITY_STRESS,
+        state=MacroState.DISINFLATIONARY_SLOWDOWN,
         mechanism=CausalMechanism.PEG_OR_PROMISE_BREAK,
         causal_story=(
             "A peg, promise, or policy anchor breaks. The cracking sovereign or asset "
-            "should be avoided while core liquidity and front-belly duration can rally."
+            "should be avoided while core liquidity and front-belly duration can rally. "
+            "USER TO CONFIRM: re-homed into the slowdown quadrant."
         ),
         leading_assets=("cash", "short_duration_government_bonds", "usd_proxy"),
         lagging_assets=(
@@ -307,11 +438,12 @@ REGIME_DEFINITIONS: tuple[Regime, ...] = (
         ),
     ),
     Regime(
-        state=MacroState.CRISIS_LIQUIDITY_STRESS,
+        state=MacroState.DISINFLATIONARY_SLOWDOWN,
         mechanism=CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN,
         causal_story=(
             "Funding demand and drawdown control dominate. The strategy should protect "
-            "capital with cash, government bonds, and USD exposure until stress fades."
+            "capital with cash, government bonds, and USD exposure until stress fades. "
+            "USER TO CONFIRM: re-homed into the slowdown quadrant."
         ),
         leading_assets=(
             "cash",
@@ -333,11 +465,12 @@ REGIME_DEFINITIONS: tuple[Regime, ...] = (
         ),
     ),
     Regime(
-        state=MacroState.POLICY_TIGHTENING_SHOCK,
+        state=MacroState.DISINFLATIONARY_SLOWDOWN,
         mechanism=CausalMechanism.DELIBERATE_POLICY_DISRUPTION,
         causal_story=(
             "Policy rates and real yields rise faster than growth expectations. The "
-            "strategy should reduce duration and beta until policy pressure stabilizes."
+            "strategy should reduce duration and beta until policy pressure stabilizes. "
+            "USER TO CONFIRM: re-homed into the slowdown quadrant."
         ),
         leading_assets=("cash", "short_duration_government_bonds", "usd_proxy"),
         lagging_assets=(
@@ -373,6 +506,62 @@ UNDEFINED_REGIME_PAIR_RATIONALE: Mapping[tuple[MacroState, CausalMechanism], str
 VALUATION_OVERLAY = ValuationOverlay()
 
 
+def state_profile(state: MacroState) -> MacroStateProfile:
+    """Return the structural profile for a macro state."""
+    return MACRO_STATE_PROFILES[state]
+
+
+def transition_row(from_state: MacroState) -> Mapping[MacroState, float]:
+    """Return the base state-only transition row."""
+    return TRANSITION_MATRIX[from_state]
+
+
+def transition_prob(from_state: MacroState, to_state: MacroState) -> float:
+    """Return the base transition probability from one state to another."""
+    return TRANSITION_MATRIX[from_state][to_state]
+
+
+def transition_row_for(
+    from_state: MacroState,
+    mechanism: CausalMechanism,
+) -> Mapping[MacroState, float]:
+    """Return a mechanism-conditioned transition row.
+
+    Multipliers are applied to the base row and then renormalized.
+    """
+    base_row = TRANSITION_MATRIX[from_state]
+    modifiers = MECHANISM_ROW_MODIFIERS[mechanism]
+    adjusted = {
+        state: probability * modifiers.get(state, 1.0)
+        for state, probability in base_row.items()
+    }
+    total = sum(adjusted.values())
+    return MappingProxyType(
+        {state: probability / total for state, probability in adjusted.items()}
+    )
+
+
+def validate_transition_matrix() -> None:
+    """Validate state-profile and transition-matrix structure."""
+    expected_states = set(MacroState)
+    if set(MACRO_STATE_PROFILES) != expected_states:
+        raise ValueError("MACRO_STATE_PROFILES must cover every MacroState exactly")
+    if set(TRANSITION_MATRIX) != expected_states:
+        raise ValueError("TRANSITION_MATRIX rows must cover every MacroState exactly")
+
+    for from_state, row in TRANSITION_MATRIX.items():
+        if set(row) != expected_states:
+            raise ValueError(f"Transition row for {from_state.value} has invalid keys")
+        if any(probability < 0 for probability in row.values()):
+            raise ValueError(f"Transition row for {from_state.value} has negative values")
+        total = sum(row.values())
+        if not isclose(total, 1.0, abs_tol=1e-9):
+            raise ValueError(f"Transition row for {from_state.value} sums to {total}")
+
+    if set(MECHANISM_ROW_MODIFIERS) != set(CausalMechanism):
+        raise ValueError("MECHANISM_ROW_MODIFIERS must cover every CausalMechanism")
+
+
 def regime_names() -> tuple[str, ...]:
     """Return available regime pair identifiers."""
     return tuple(regime.name for regime in REGIME_DEFINITIONS)
@@ -384,3 +573,6 @@ def get_regime(state: MacroState, mechanism: CausalMechanism) -> Regime:
         if regime.state == state and regime.mechanism == mechanism:
             return regime
     raise KeyError(f"Undefined regime pair: {state.value} x {mechanism.value}")
+
+
+validate_transition_matrix()

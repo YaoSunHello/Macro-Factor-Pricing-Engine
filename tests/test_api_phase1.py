@@ -26,7 +26,7 @@ class ApiPhase1Tests(unittest.TestCase):
             1.0,
             delta=1e-9,
         )
-        self.assertEqual(len(payload["macro_states"]), 6)
+        self.assertEqual(len(payload["macro_states"]), 4)
         self.assertEqual(len(payload["causal_mechanisms"]), 4)
         self.assertEqual(len(payload["defined_pairs"]), len(DEFINED_REGIME_PAIRS))
         self.assertEqual(len(payload["defined_pairs"]), 8)

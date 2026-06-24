@@ -13,6 +13,8 @@ package under `src/macro_factor_pricing_engine` with:
 - a UK-retail UCITS/LSE-listed asset-class universe for research scope, with every
   instrument still unapproved for allocation;
 - two-axis macro regime definitions: macro state plus causal mechanism;
+- state-level macro profiles and a heuristic monthly transition matrix for the
+  four structural macro quadrants;
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
 - a strategic overall-portfolio benchmark module with horizon-specific neutral SAA
@@ -120,8 +122,6 @@ Macro states:
 - `reflation`
 - `stagflation`
 - `disinflationary_slowdown`
-- `crisis_liquidity_stress`
-- `policy_tightening_shock`
 
 Causal mechanisms:
 
@@ -151,15 +151,23 @@ Defined state x mechanism pairs:
 | `stagflation` | `deliberate_policy_disruption` | inflation/policy/fiscal pressure dominates |
 | `stagflation` | `leverage_institutional_breakdown` | stress can restore duration flight-to-quality |
 | `disinflationary_slowdown` | `cyclical_no_acute_mechanism` | normal slowdown with easing optionality |
-| `crisis_liquidity_stress` | `peg_or_promise_break` | anchor break/contagion playbook |
-| `crisis_liquidity_stress` | `leverage_institutional_breakdown` | deleveraging and policy-response playbook |
-| `policy_tightening_shock` | `deliberate_policy_disruption` | forced repricing from policy/real-rate shock |
+| `disinflationary_slowdown` | `peg_or_promise_break` | anchor break/contagion playbook |
+| `disinflationary_slowdown` | `leverage_institutional_breakdown` | deleveraging and policy-response playbook |
+| `disinflationary_slowdown` | `deliberate_policy_disruption` | forced repricing from policy/real-rate shock |
 
-The rest of the 6 x 4 grid is intentionally undefined because those pairs are not
+The rest of the 4 x 4 grid is intentionally undefined because those pairs are not
 distinct strategy playbooks yet. Each defined pair records the causal story, expected
 leading asset classes, expected lagging asset classes, observable trigger names, and
 mechanism-specific asset-map overrides. Leading/lagging lists are labelled as heuristic
 theory-priors, not fitted estimates.
+
+`MACRO_STATE_PROFILES` records structural descriptors for the four state quadrants:
+growth direction, inflation direction, typical root causes, typical drivers, and key
+indicators. `TRANSITION_MATRIX` records a monthly, heuristic state-only transition prior
+whose rows sum to 1.0. It is data only; transition-intensity scoring is intentionally
+left for a later module. `transition_row_for(...)` applies the first mechanism modifier:
+leverage/institutional breakdown increases the probability of moving into
+`disinflationary_slowdown`, then renormalizes the row.
 
 The key test anchor is stagflation:
 
@@ -321,7 +329,7 @@ The endpoint serializes the existing `run_analysis()` output into JSON for the U
 
 - full regime probability distribution, not only the dominant regime;
 - dominant regime and transition metadata;
-- 6 x 4 macro-state/causal-mechanism grid axes;
+- 4 x 4 macro-state/causal-mechanism grid axes;
 - defined regime pairs;
 - rates scores and fired triggers;
 - pending target weights;
@@ -356,6 +364,7 @@ Current test coverage checks that:
 - no tradeable instruments are available yet;
 - regimes have causal stories and observable triggers;
 - only meaningful state x mechanism pairs are defined;
+- all four state profiles are present and transition-matrix rows sum to 1.0;
 - stagflation duration positioning flips by causal mechanism;
 - invalid `RegimeProbabilities` sums are rejected;
 - valuation overlay is not in the macro channel set;
@@ -404,6 +413,8 @@ The next planned module is Stage 1 regime classification:
   `1y`, and `1q`, validated against the asset-class universe.
 - `2026-06-24`: Added Phase 1 read-only FastAPI JSON seam and static frontend regime
   dashboard; Phase 2 ingestion remains intentionally unstarted.
+- `2026-06-24`: Collapsed macro states to four structural quadrants, re-homed mechanism
+  playbooks, and added state profiles plus a heuristic monthly transition matrix.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
@@ -422,133 +433,7 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 
 ## Prompt
-TASK
-Rebuild src/macro_factor_pricing_engine/regimes.py around a 4-state taxonomy.
-Update __init__.py exports and tests to match. Do NOT build the transition-
-intensity scoring engine (entropy / drift / hysteresis / PIT) — that is a
-SEPARATE later module that will CONSUME the matrix this file defines. Keep the
-CLI and the full unittest suite green.
 
-──────────────────────────────────────────────
-CHANGE 1 — collapse MacroState 6 -> 4
-──────────────────────────────────────────────
-Keep ONLY the four structural quadrants:
-  GOLDILOCKS, REFLATION, STAGFLATION, DISINFLATIONARY_SLOWDOWN
-REMOVE CRISIS_LIQUIDITY_STRESS and POLICY_TIGHTENING_SHOCK — they are
-mechanisms, not states, and belong on the CausalMechanism axis (unchanged:
-PEG_OR_PROMISE_BREAK, DELIBERATE_POLICY_DISRUPTION,
-LEVERAGE_INSTITUTIONAL_BREAKDOWN, CYCLICAL_NO_ACUTE_MECHANISM).
-
-──────────────────────────────────────────────
-CHANGE 2 — re-home the 3 orphaned REGIME_DEFINITIONS pairs
-(keep each pair's mechanism, leading/lagging assets, triggers, causal_story;
- only the state field changes)  -- all flagged USER TO CONFIRM
-──────────────────────────────────────────────
-  CRISIS_LIQUIDITY_STRESS x PEG_OR_PROMISE_BREAK
-    -> DISINFLATIONARY_SLOWDOWN x PEG_OR_PROMISE_BREAK
-       (sovereign/currency break -> demand collapse; risk-off, core-deflationary)
-  CRISIS_LIQUIDITY_STRESS x LEVERAGE_INSTITUTIONAL_BREAKDOWN
-    -> DISINFLATIONARY_SLOWDOWN x LEVERAGE_INSTITUTIONAL_BREAKDOWN  (2008 archetype)
-  POLICY_TIGHTENING_SHOCK x DELIBERATE_POLICY_DISRUPTION
-    -> DISINFLATIONARY_SLOWDOWN x DELIBERATE_POLICY_DISRUPTION  (Volcker archetype)
-Result: 8 defined pairs total (same count as before, just re-homed).
-
-──────────────────────────────────────────────
-CHANGE 3 — add STATE-level structural profiles (new)
-──────────────────────────────────────────────
-The existing Regime dataclass is per-(state x mechanism) PLAYBOOK. Add a
-separate STATE-level structural descriptor:
-
-  @dataclass(frozen=True) MacroStateProfile:
-    state, growth_direction, inflation_direction,
-    typical_root_causes: tuple[str,...], typical_drivers: tuple[str,...],
-    key_indicators: tuple[str,...]
-
-  MACRO_STATE_PROFILES: Mapping[MacroState, MacroStateProfile]  (all 4)
-
-Content (verbatim intent from the desk review):
-  GOLDILOCKS  growth=stable_positive, inflation=low
-    root_causes: productivity boom, supply-side expansion
-    drivers: tech adoption, global trade expansion
-    key_indicators: positive output gap closing without unit-labor-cost spikes
-  REFLATION   growth=accelerating, inflation=rising
-    root_causes: cyclical demand-pull, fiscal expansion
-    drivers: post-recession inventory rebuild, infrastructure spend
-    key_indicators: credit-creation velocity, steepening yield curve
-  STAGFLATION growth=decelerating, inflation=sticky_high
-    root_causes: supply-side shock, structural policy distortion
-    drivers: energy blockades, structural de-globalization
-    key_indicators: collapsing profit margins alongside rising input/commodity prices
-  DISINFLATIONARY_SLOWDOWN growth=decelerating, inflation=falling
-    root_causes: cyclical demand exhaustion, post-bubble deleveraging
-    drivers: end of credit cycle, monetary policy biting
-    key_indicators: rising inventory-to-sales ratio, widening credit spreads
-
-──────────────────────────────────────────────
-CHANGE 4 — add the state-only TRANSITION MATRIX (new; data only, no scoring)
-──────────────────────────────────────────────
-Monthly time step. Heuristic prior (NOT estimated — only ~16 episodes exist).
-Rows MUST sum to 1.0 (the diagonal "stay" term is mandatory — it is the
-persistence/inertia term).
-
-  TRANSITION_TIME_STEP = "monthly"
-  TRANSITION_MATRIX_IS_HEURISTIC = True
-  Tier key (documentation): adjacent~0.15, diagonal~0.05, reversal~0.03,
-    stay = 1 - sum(off-diagonals). Tiers are a starting key; economic
-    asymmetries override them (see Slowdown->Stagflation).
-
-  TRANSITION_MATRIX: Mapping[MacroState, Mapping[MacroState, float]]
-    (G=Goldilocks R=Reflation S=Stagflation D=Disinflationary_Slowdown)
-    FROM G:  R 0.15, S 0.03, D 0.15, G(stay) 0.67
-    FROM R:  G 0.10, S 0.15, D 0.05, R(stay) 0.70
-    FROM S:  G 0.03, R 0.05, D 0.15, S(stay) 0.77
-    FROM D:  G 0.15, R 0.03, S 0.02, D(stay) 0.80
-
-  Encoded asymmetries (keep — this is the point of a matrix vs a scalar):
-    - Slowdown stickiest (0.80); main escape D->G (recovery).
-    - R->S (0.15) > S->R (0.05): overheating tips to stagflation easily;
-      climbing back out of sticky inflation is hard.
-
-──────────────────────────────────────────────
-CHANGE 5 — mechanism modifier (few knobs, heuristic)
-──────────────────────────────────────────────
-The base matrix is state-only. The mechanism conditions transition odds.
-Implement ONE concrete modifier now; others identity (TODO).
-  MECHANISM_ROW_MODIFIERS: Mapping[CausalMechanism, Mapping[MacroState, float]]
-    LEVERAGE_INSTITUTIONAL_BREAKDOWN: { DISINFLATIONARY_SLOWDOWN: 3.0 }
-      # deleveraging accelerates the path into slowdown/crisis
-    all other mechanisms: {} (identity)  # TODO confirm with more data
-  Function: transition_row_for(from_state, mechanism) ->
-    apply multipliers to the base row, then RENORMALISE to sum 1.0.
-
-──────────────────────────────────────────────
-HELPERS (stable signatures)
-──────────────────────────────────────────────
-  state_profile(state) -> MacroStateProfile
-  transition_row(from_state) -> Mapping[MacroState, float]        # base
-  transition_prob(from_state, to_state) -> float
-  transition_row_for(from_state, mechanism) -> Mapping[MacroState, float]  # modified
-  validate_transition_matrix() -> None   # rows sum 1.0 (tol 1e-9), no negatives,
-                                         # keys are exactly the 4 MacroState; called at import
-
-PRESERVE UNCHANGED (consumers depend on these):
-  RegimeProbabilities (incl. dominant_regime AND is_transition(0.6) — keep both),
-  Regime, AssetMapOverride, ValuationOverlay, MACRO_TRANSMISSION_CHANNELS,
-  MACRO_TRANSMISSION_LOGIC, get_regime, regime_names, REGIME_DEFINITIONS,
-  DEFINED_REGIME_PAIRS, UNDEFINED_REGIME_PAIR_RATIONALE.
-  Every Regime keeps observable_trigger_names, causal_story,
-  asset_priors_are_heuristic=True.
-
-UPDATE:
-  __init__.py — remove the two deleted states from any export list.
-  tests/test_policy_and_regimes.py — update the expected DEFINED_REGIME_PAIRS
-    set to the 8 re-homed pairs; keep the is_transition 0.55/0.65 test as-is.
-  ADD tests: every TRANSITION_MATRIX row sums to 1.0; transition_row_for under
-    LEVERAGE_INSTITUTIONAL_BREAKDOWN raises D's probability vs base then
-    renormalises to 1.0; all 4 MACRO_STATE_PROFILES present.
-
-ACCEPTANCE
-  python -m unittest discover tests   passes
-  validate_transition_matrix() passes at import
-  MacroState has exactly 4 members; grep finds zero refs to the removed states
-  CLI (app.py) still runs
+No active implementation prompt. The latest prompt has been implemented: the regime
+taxonomy now uses four structural macro states, state-level profiles, and a heuristic
+monthly transition matrix.

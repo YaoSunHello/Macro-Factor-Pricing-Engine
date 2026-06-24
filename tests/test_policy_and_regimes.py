@@ -16,13 +16,16 @@ from macro_factor_pricing_engine.policy import build_default_policy
 from macro_factor_pricing_engine.regimes import (
     DEFINED_REGIME_PAIRS,
     MACRO_TRANSMISSION_CHANNELS,
+    MACRO_STATE_PROFILES,
     REGIME_DEFINITIONS,
+    TRANSITION_MATRIX,
     UNDEFINED_REGIME_PAIR_RATIONALE,
     VALUATION_OVERLAY,
     CausalMechanism,
     MacroState,
     RegimeProbabilities,
     get_regime,
+    transition_row_for,
 )
 from macro_factor_pricing_engine.treasury_policy import build_treasury_policy
 from macro_factor_pricing_engine.universe import (
@@ -63,12 +66,37 @@ class RegimeTests(unittest.TestCase):
             (MacroState.STAGFLATION, CausalMechanism.DELIBERATE_POLICY_DISRUPTION),
             (MacroState.STAGFLATION, CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN),
             (MacroState.DISINFLATIONARY_SLOWDOWN, CausalMechanism.CYCLICAL_NO_ACUTE_MECHANISM),
-            (MacroState.CRISIS_LIQUIDITY_STRESS, CausalMechanism.PEG_OR_PROMISE_BREAK),
-            (MacroState.CRISIS_LIQUIDITY_STRESS, CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN),
-            (MacroState.POLICY_TIGHTENING_SHOCK, CausalMechanism.DELIBERATE_POLICY_DISRUPTION),
+            (MacroState.DISINFLATIONARY_SLOWDOWN, CausalMechanism.PEG_OR_PROMISE_BREAK),
+            (MacroState.DISINFLATIONARY_SLOWDOWN, CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN),
+            (MacroState.DISINFLATIONARY_SLOWDOWN, CausalMechanism.DELIBERATE_POLICY_DISRUPTION),
         }
         self.assertEqual(DEFINED_REGIME_PAIRS, expected_pairs)
         self.assertTrue(UNDEFINED_REGIME_PAIR_RATIONALE)
+
+    def test_macro_state_taxonomy_has_four_structural_quadrants(self):
+        self.assertEqual(len(MacroState), 4)
+        self.assertEqual(set(MACRO_STATE_PROFILES), set(MacroState))
+
+    def test_transition_matrix_rows_sum_to_one(self):
+        self.assertEqual(set(TRANSITION_MATRIX), set(MacroState))
+        for state, row in TRANSITION_MATRIX.items():
+            with self.subTest(state=state):
+                self.assertEqual(set(row), set(MacroState))
+                self.assertTrue(all(probability >= 0 for probability in row.values()))
+                self.assertAlmostEqual(sum(row.values()), 1.0, delta=1e-9)
+
+    def test_leverage_breakdown_modifier_raises_slowdown_probability(self):
+        base = TRANSITION_MATRIX[MacroState.GOLDILOCKS]
+        modified = transition_row_for(
+            MacroState.GOLDILOCKS,
+            CausalMechanism.LEVERAGE_INSTITUTIONAL_BREAKDOWN,
+        )
+
+        self.assertGreater(
+            modified[MacroState.DISINFLATIONARY_SLOWDOWN],
+            base[MacroState.DISINFLATIONARY_SLOWDOWN],
+        )
+        self.assertAlmostEqual(sum(modified.values()), 1.0, delta=1e-9)
 
     def test_stagflation_mechanism_flips_long_duration_positioning(self):
         policy_disruption = get_regime(
