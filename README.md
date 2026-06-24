@@ -15,6 +15,8 @@ package under `src/macro_factor_pricing_engine` with:
 - two-axis macro regime definitions: macro state plus causal mechanism;
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
+- a strategic overall-portfolio benchmark module with horizon-specific neutral SAA
+  blends for `10y`, `5y`, `1y`, and `1q`;
 - a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
 - a rates-only end-to-end analysis loop that runs from committed snapshot data to a
   pending recommendation;
@@ -38,6 +40,7 @@ Macro-Factor-Pricing-Engine/
 │       ├── __init__.py
 │       ├── policy.py
 │       ├── regimes.py
+│       ├── benchmarks.py
 │       ├── treasury_policy.py
 │       ├── TreasuryPolicy.md
 │       ├── universe.py
@@ -186,6 +189,28 @@ Recorded strategy triggers:
 
 The human-input and instrument-universe-change triggers require explicit confirmation.
 
+### Strategic Benchmarks
+
+`src/macro_factor_pricing_engine/benchmarks.py` defines the neutral strategic asset
+allocation reference the engine tilts away from. This benchmark is not the live
+portfolio: the live portfolio can still initialize with every asset-class weight at
+zero, while the benchmark has non-zero reference weights for performance and risk
+measurement.
+
+Benchmarks are defined by investment horizon:
+
+| Horizon | Principle |
+|---|---|
+| `10y` | Growth-heavy blend with 80% growth / 20% defensive exposure |
+| `5y` | Balanced medium-horizon blend with lower growth risk |
+| `1y` | Defensive one-year blend with high short-duration/cash exposure |
+| `1q` | Capital preservation benchmark, 100% cash |
+
+Every benchmark bucket is validated against `universe.asset_classes()` at import time,
+and every horizon must sum to 1.0 within `1e-9`. Omitted buckets are treated as 0.0 by
+`benchmark_weight(horizon, asset_class)`. Starter weights are `USER TO CONFIRM` policy
+defaults, not live allocations.
+
 ### Broker API Setup
 
 `src/macro_factor_pricing_engine/api_keys.py` defines API credential setup metadata and
@@ -292,6 +317,7 @@ Current test coverage checks that:
 - policy blocks trading while tickers are empty;
 - broker API setup aliases resolve and missing credentials are reported without exposing
   secret values;
+- benchmark horizons are present, valid against the universe, and sum to 1.0;
 - regime detection lag budget exists in policy;
 - Treasury policy exists as structured data, not an autopilot scorer.
 - rates loop runs end-to-end on the committed snapshot;
@@ -326,6 +352,8 @@ The next planned module is Stage 1 regime classification:
 - `2026-06-24`: Replaced empty/US-placeholder universe membership with a
   UK-retail-accessible UCITS/LSE-listed research universe and platform capability
   matrix while keeping all allocation approvals closed.
+- `2026-06-24`: Added horizon-specific strategic benchmark blends for `10y`, `5y`,
+  `1y`, and `1q`, validated against the asset-class universe.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
