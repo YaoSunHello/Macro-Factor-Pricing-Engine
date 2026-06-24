@@ -345,79 +345,81 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 ## Prompt
 # Macro-Factor-Pricing-Engine — Module: End-to-End Framework Loop (Asset Class #1: Rates)
-
 TASK
-Repopulate the asset-class universe in
-  src/macro_factor_pricing_engine/universe.py
-from empty/US-placeholder state to a UK-retail-tradable UCITS universe.
-Do NOT change any other file. Do NOT flip any approval flag to True.
+Create a new module:
+  src/macro_factor_pricing_engine/benchmarks.py
+holding the STRATEGIC overall-portfolio benchmark, defined per investment
+horizon. Do NOT modify any other file. This is Q1 (overall level) only —
+no sub-asset-class index map, no CPI+/cash+ targets (those are separate).
 
-WHY (context — do not remove this design intent)
-The current rates proxies (SHV, SHY, IEF, TLT, VGLT, TIP, VTIP, VGIT) are
-US-domiciled ETFs. Under PRIIPs/KID rules a UK retail client cannot buy these
-on any FCA platform (no Key Information Document → order blocked). They must be
-replaced with the UCITS (Irish-domiciled, LSE-listed) equivalent. Equity,
-credit, gold, commodity, usd_proxy and cash buckets are currently empty and
-must be filled.
+WHY (design intent — keep)
+The live portfolio initialises every asset-class weight to 0. The benchmark is
+the NEUTRAL strategic asset allocation (SAA) the engine tilts away FROM — it is
+a measurement reference, NOT the live portfolio, so its weights are non-zero.
+Horizon does not change benchmark mechanics; it sets the risk budget the blend
+encodes. Longer horizon carries more growth risk; a 1-quarter horizon cannot
+bear drawdown it may not recover, so its only valid benchmark is cash.
+This satisfies the SAMURAI benchmark test (specified-in-advance, appropriate,
+investable) because every bucket maps to an investable UCITS sleeve in
+universe.py.
 
-HARD CONSTRAINTS (these will be tested — see ACCEPTANCE)
-1. Keep these exported symbols and their existing signatures unchanged:
-   ASSET_CLASS_UNIVERSE, ASSET_CLASS_SCORING_MODULES, asset_classes(),
-   scoring_module_for(), has_tradeable_instruments(), rates_securities().
-   (sizing.py, app.py, __init__.py import from here — do not break them.)
-2. has_tradeable_instruments() MUST still return False after your change.
-   Membership ≠ approval: set approved_for_allocation=False on EVERY security.
-3. ASSET_CLASS_SCORING_MODULES must stay keyed by the same set of asset classes
-   as ASSET_CLASS_UNIVERSE (it is derived from it — keep that derivation).
-4. rates_securities() must remain non-empty and cover the four rate buckets.
-5. The four rate-bucket names must stay exactly:
-   short_duration_government_bonds, intermediate_duration_government_bonds,
-   long_duration_government_bonds, inflation_linked_bonds.
+HARD CONSTRAINTS (will be tested)
+1. The weight keys in every horizon blend MUST be a subset of
+   universe.asset_classes() — import it and validate at module load. This keeps
+   bucket names a single source of truth even as universe.py gets populated.
+   If any key is not a valid asset class, raise ValueError at import.
+2. Each horizon's weights MUST sum to 1.0 within tolerance 1e-9.
+3. The four horizon keys are exactly: "10y", "5y", "1y", "1q".
+4. Do not import sizing/policy/regimes (avoid cycles); benchmarks.py depends
+   only on universe.py.
 
-SCHEMA per security (extend the existing one, don't invent a parallel format)
-  ticker, bucket, role, ccy, domicile, listing, isin, replaces,
-  approved_for_allocation (always False),
-  duration_proxy_years (rates buckets only)
-- isin is the cross-platform identifier (tickers vary by currency/acc-dist line).
-- replaces = the US proxy this UCITS line stands in for (None for new buckets).
-- Add a module-level _sec(...) helper to build records and keep this DRY.
+SCHEMA
+  HORIZON_BENCHMARKS: dict[str, dict[str, float]]
+    horizon_key -> { asset_class_bucket: weight }
+  Omitted buckets are implicitly 0.0 (do not list zeros).
+  HORIZONS: tuple[str, ...] = ("10y", "5y", "1y", "1q")  # canonical order
 
-UNIVERSE TO POPULATE (representative tickers; one role line each)
-us_equities:                 CSPX (S&P500 acc), VUSA (S&P500 dist)
-global_developed_equities:   SWDA (MSCI World acc), VEVE (FTSE Dev dist)
-emerging_market_equities:    EIMI (MSCI EM IMI acc), VFEM (FTSE EM dist)
-short_duration_govt_bonds:   IB01 (0-1yr UST, dur≈0.4, replaces SHV),
-                             IBTA (1-3yr UST, dur≈1.9, replaces SHY)
-intermediate_duration_govt:  IBTM (7-10yr UST, dur≈7.5, replaces IEF)
-long_duration_govt_bonds:    IDTL (20+yr UST acc, dur≈16.5, replaces TLT),
-                             DTLA (20+yr UST dist, dur≈16.5, replaces VGLT)
-inflation_linked_bonds:      ITPS (broad TIPS, dur≈6.5, replaces TIP)
-investment_grade_credit:     LQDE (USD IG corp)
-high_yield_credit:           IHYU (USD HY corp)
-gold:                        SGLN (iShares Physical Gold), SGLD (Invesco)
-broad_commodities:           CMOD (Invesco BCOM), ICOM (iShares div. cmdty swap)
-usd_proxy:                   IB01 (USD cash-rate proxy, dur≈0.4)
-cash:                        IGLS (GBP 0-5yr Gilts near-cash, dur≈2.3, ccy GBP)
+STARTER SAA BLENDS (defaults — flagged USER TO CONFIRM in the docstring;
+the horizon glide is the researched principle, the exact weights are policy)
 
-LEAVE AS EXPLICIT TODO (do NOT guess these — add a code comment, no record)
-- intermediate bucket: no clean single-line UCITS twin for VGIT's 3-10y blend.
-- inflation_linked: short-TIPS / 5y-breakeven twin for VTIP unverified.
-- Any ISIN you are not certain of: set isin=None with a "# TODO confirm" comment
-  rather than inventing one.
+  "10y"  (Growth 0.80 / Defensive 0.20):
+    us_equities 0.30, global_developed_equities 0.28,
+    emerging_market_equities 0.12, gold 0.05, broad_commodities 0.05,
+    intermediate_duration_government_bonds 0.08,
+    long_duration_government_bonds 0.04,
+    investment_grade_credit 0.05, high_yield_credit 0.03
 
-ADD: platform-capability matrix (single source of truth, NOT per-security)
-  PLATFORM_ACCESS: dict[platform -> dict[capability -> bool]]
-  platforms in scope: ibkr_uk, trading212, hargreaves_lansdown, aj_bell,
-    investengine
-  capabilities: ucits_etfs, us_listed_stocks, us_domiciled_etfs(=False all),
-    futures, fx_spot, options, cfds
-  Key asymmetry to encode: only ibkr_uk has futures=True and fx_spot=True.
-  trading212 has cfds=True; the rest are ucits-only.
-  Add helpers: platforms() -> tuple[str,...],
-               platform_supports(platform, capability) -> bool
+  "5y"  (Growth ~0.57 / Defensive ~0.43):
+    us_equities 0.22, global_developed_equities 0.20,
+    emerging_market_equities 0.08, gold 0.04, broad_commodities 0.03,
+    short_duration_government_bonds 0.05,
+    intermediate_duration_government_bonds 0.12,
+    long_duration_government_bonds 0.05, inflation_linked_bonds 0.05,
+    investment_grade_credit 0.08, high_yield_credit 0.03, cash 0.05
+
+  "1y"  (Growth ~0.30 / Defensive ~0.70):
+    us_equities 0.12, global_developed_equities 0.09,
+    emerging_market_equities 0.04, gold 0.05,
+    short_duration_government_bonds 0.30,
+    intermediate_duration_government_bonds 0.12,
+    inflation_linked_bonds 0.05, investment_grade_credit 0.08, cash 0.15
+
+  "1q"  (Capital preservation):
+    cash 1.00
+
+HELPERS (stable signatures)
+  horizons() -> tuple[str, ...]
+  benchmark_for(horizon: str) -> dict[str, float]      # full blend, KeyError if unknown
+  benchmark_weight(horizon: str, asset_class: str) -> float  # 0.0 if bucket absent
+  validate() -> None   # re-runs the sum-to-1 and valid-bucket checks; called at import
+
+ADD TESTS: tests/test_benchmarks.py
+  - all four HORIZONS present in HORIZON_BENCHMARKS
+  - every horizon's weights sum to 1.0 (abs tol 1e-9)
+  - every weight key is in universe.asset_classes()
+  - benchmark_weight returns 0.0 for an in-universe bucket omitted from a blend
+  - "1q" is 100% cash
 
 ACCEPTANCE
-- `python -m unittest tests.test_policy_and_regimes.UniverseTests` passes.
-- No bucket in ASSET_CLASS_UNIVERSE is empty.
-- has_tradeable_instruments() is False.
-- Module imports with no errors; sizing.py and app.py still import cleanly.
+  python -m unittest tests.test_benchmarks   passes
+  module imports with no error; no other file changed
