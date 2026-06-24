@@ -423,98 +423,132 @@ Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recom
 
 ## Prompt
 TASK
-Add a local web frontend + ingestion pipeline to the engine. Engine logic is
-READ-ONLY: the frontend renders existing output and stores pending signals; it
-does not compute regimes, scores, or weights. Build in two phases with a hard
-stop between them. Do not modify regimes.py, sizing.py, rates_scorer.py,
-policy.py, or universe.py. CLI (app.py) and existing tests must still pass.
+Rebuild src/macro_factor_pricing_engine/regimes.py around a 4-state taxonomy.
+Update __init__.py exports and tests to match. Do NOT build the transition-
+intensity scoring engine (entropy / drift / hysteresis / PIT) — that is a
+SEPARATE later module that will CONSUME the matrix this file defines. Keep the
+CLI and the full unittest suite green.
 
 ──────────────────────────────────────────────
-PHASE 1 — backend JSON seam + read-only regime dashboard
+CHANGE 1 — collapse MacroState 6 -> 4
 ──────────────────────────────────────────────
-1a. NEW: src/macro_factor_pricing_engine/api.py
-    A thin FastAPI app. ONE endpoint for Phase 1:
-      GET /api/state  -> serializes run_analysis() (from app.py) to JSON:
-        - regime_distribution: list of {state, mechanism, name, weight,
-          causal_story, leading_assets, lagging_assets} for EVERY regime in
-          RegimeProbabilities.weights (full distribution, NOT just dominant)
-        - dominant: {state, mechanism, name}
-        - is_transition: bool   (RegimeProbabilities.is_transition(0.6))
-        - max_mass: float       (the actual max weight, so UI can show "0.55")
-        - defined_pairs: the (state, mechanism) pairs in DEFINED_REGIME_PAIRS
-        - scores: {cycle, valuation, fiscal_veto, overlay_modifier,
-          composite, fired_triggers}
-        - target_weights: list of {ticker, bucket, weight}
-        - asset_classes: universe.asset_classes()  (for the grid axes)
-    Serialization helper goes in api.py only — do not add methods to the
-    frozen dataclasses.
-
-1b. NEW: frontend/ (static SPA; Chart.js, no heavy framework needed)
-    Components:
-      - TWO-AXIS REGIME GRID: rows = MacroState (6), cols = CausalMechanism (4).
-        Shade each cell by its probability mass. The 8 cells in defined_pairs
-        are active; the other 16 are greyed (undefined — not a strategy yet).
-        Dominant cell highlighted.
-      - TRANSITION BANNER: when is_transition is true, show a clear
-        "TRANSITION — no regime holds >60% (max = {max_mass:.0%})" warning.
-      - DISTRIBUTION BAR: every regime with its weight, sorted desc — this is
-        the full distribution the rest of the engine discards.
-      - DOMINANT CARD: state + mechanism + causal_story + leading/lagging assets.
-      - SCORES PANEL: cycle/valuation/fiscal_veto/overlay_modifier/composite.
-        Label overlay_modifier "computed, not yet applied" (it is inert today).
-    Read-only. No inputs in Phase 1.
-
-PHASE 1 ACCEPTANCE
-  - GET /api/state returns valid JSON; regime_distribution sums to ~1.0.
-  - Grid renders 6x4; exactly 8 active cells match DEFINED_REGIME_PAIRS.
-  - Transition banner toggles correctly against a forced low-mass fixture.
-  - Existing CLI + unittest suite still green.
-  *** STOP. Do not start Phase 2 until Phase 1 is reviewed. ***
+Keep ONLY the four structural quadrants:
+  GOLDILOCKS, REFLATION, STAGFLATION, DISINFLATIONARY_SLOWDOWN
+REMOVE CRISIS_LIQUIDITY_STRESS and POLICY_TIGHTENING_SHOCK — they are
+mechanisms, not states, and belong on the CausalMechanism axis (unchanged:
+PEG_OR_PROMISE_BREAK, DELIBERATE_POLICY_DISRUPTION,
+LEVERAGE_INSTITUTIONAL_BREAKDOWN, CYCLICAL_NO_ACUTE_MECHANISM).
 
 ──────────────────────────────────────────────
-PHASE 2 — ingestion + local LLM draft + confirmation commit
+CHANGE 2 — re-home the 3 orphaned REGIME_DEFINITIONS pairs
+(keep each pair's mechanism, leading/lagging assets, triggers, causal_story;
+ only the state field changes)  -- all flagged USER TO CONFIRM
 ──────────────────────────────────────────────
-2a. NEW endpoints in api.py:
-      POST /api/ingest  -> accepts pdf | image | raw text
-        - pdf: extract text (pdfplumber/pypdf)
-        - image/photo: OCR (tesseract) to text
-        - text: passed through
-        Then call the local extractor; RETURN a DRAFT signal. Do NOT persist.
-      POST /api/signal/confirm -> takes a (possibly user-edited) draft and
-        writes it to a pending-signal store (jsonl, like turnover_ledger).
-        Status = PENDING. This is the only path that persists a signal.
+  CRISIS_LIQUIDITY_STRESS x PEG_OR_PROMISE_BREAK
+    -> DISINFLATIONARY_SLOWDOWN x PEG_OR_PROMISE_BREAK
+       (sovereign/currency break -> demand collapse; risk-off, core-deflationary)
+  CRISIS_LIQUIDITY_STRESS x LEVERAGE_INSTITUTIONAL_BREAKDOWN
+    -> DISINFLATIONARY_SLOWDOWN x LEVERAGE_INSTITUTIONAL_BREAKDOWN  (2008 archetype)
+  POLICY_TIGHTENING_SHOCK x DELIBERATE_POLICY_DISRUPTION
+    -> DISINFLATIONARY_SLOWDOWN x DELIBERATE_POLICY_DISRUPTION  (Volcker archetype)
+Result: 8 defined pairs total (same count as before, just re-homed).
 
-2b. NEW: src/macro_factor_pricing_engine/discretionary_signal.py
-    Schema (the draft the extractor fills):
-      as_of, target_type ("regime"|"asset_class"), target, score[-1,1],
-      confidence[0,1], half_life_days, expires, corroboration[list],
-      rationale, and per-calibration-field anchor strings.
-    HARD RULES:
-      - target validated: if asset_class -> must be in universe.asset_classes();
-        if regime -> target must name a valid MacroState/CausalMechanism.
-      - Layer 1 (as_of, direction/sign) and Layer 2 (taxonomy mapping) are
-        extracted. Layer 3 (score, confidence, half_life) are PROPOSED with a
-        required anchor string each; never committed without confirm.
-      - effective contribution = score * confidence * decay(t); expired -> 0.
-      - routes to regime-probability evidence OR a Block-D positioning input.
-        MUST NOT import or write to sizing.py.
+──────────────────────────────────────────────
+CHANGE 3 — add STATE-level structural profiles (new)
+──────────────────────────────────────────────
+The existing Regime dataclass is per-(state x mechanism) PLAYBOOK. Add a
+separate STATE-level structural descriptor:
 
-2c. LOCAL LLM (no data egress)
-    - Use Ollama with a local instruct model (configurable model name).
-    - Strict JSON output, validated against the schema; reject/repair invalid.
-    - Prompt the model to SEPARATE reproducible extraction from proposed
-      calibration, and to populate anchor strings (why this score, why this
-      confidence). No network calls to hosted APIs.
+  @dataclass(frozen=True) MacroStateProfile:
+    state, growth_direction, inflation_direction,
+    typical_root_causes: tuple[str,...], typical_drivers: tuple[str,...],
+    key_indicators: tuple[str,...]
 
-2d. FRONTEND additions:
-    - Upload widget (pdf/photo) + manual-text box.
-    - Draft-review panel: shows extracted + proposed fields, ALL editable,
-      with anchor strings visible. CONFIRM / REJECT buttons.
-    - Pending-signals list with score/confidence/decay/expiry.
+  MACRO_STATE_PROFILES: Mapping[MacroState, MacroStateProfile]  (all 4)
 
-PHASE 2 ACCEPTANCE
-  - Ingesting a sample text returns a schema-valid draft, nothing persisted.
-  - Confirm writes exactly one PENDING row; reject writes nothing.
-  - Invalid target (bucket not in universe) is rejected before draft returns.
-  - No module imports sizing.py from the signal path.
-  - No outbound network call in the ingest path (local model only).
+Content (verbatim intent from the desk review):
+  GOLDILOCKS  growth=stable_positive, inflation=low
+    root_causes: productivity boom, supply-side expansion
+    drivers: tech adoption, global trade expansion
+    key_indicators: positive output gap closing without unit-labor-cost spikes
+  REFLATION   growth=accelerating, inflation=rising
+    root_causes: cyclical demand-pull, fiscal expansion
+    drivers: post-recession inventory rebuild, infrastructure spend
+    key_indicators: credit-creation velocity, steepening yield curve
+  STAGFLATION growth=decelerating, inflation=sticky_high
+    root_causes: supply-side shock, structural policy distortion
+    drivers: energy blockades, structural de-globalization
+    key_indicators: collapsing profit margins alongside rising input/commodity prices
+  DISINFLATIONARY_SLOWDOWN growth=decelerating, inflation=falling
+    root_causes: cyclical demand exhaustion, post-bubble deleveraging
+    drivers: end of credit cycle, monetary policy biting
+    key_indicators: rising inventory-to-sales ratio, widening credit spreads
+
+──────────────────────────────────────────────
+CHANGE 4 — add the state-only TRANSITION MATRIX (new; data only, no scoring)
+──────────────────────────────────────────────
+Monthly time step. Heuristic prior (NOT estimated — only ~16 episodes exist).
+Rows MUST sum to 1.0 (the diagonal "stay" term is mandatory — it is the
+persistence/inertia term).
+
+  TRANSITION_TIME_STEP = "monthly"
+  TRANSITION_MATRIX_IS_HEURISTIC = True
+  Tier key (documentation): adjacent~0.15, diagonal~0.05, reversal~0.03,
+    stay = 1 - sum(off-diagonals). Tiers are a starting key; economic
+    asymmetries override them (see Slowdown->Stagflation).
+
+  TRANSITION_MATRIX: Mapping[MacroState, Mapping[MacroState, float]]
+    (G=Goldilocks R=Reflation S=Stagflation D=Disinflationary_Slowdown)
+    FROM G:  R 0.15, S 0.03, D 0.15, G(stay) 0.67
+    FROM R:  G 0.10, S 0.15, D 0.05, R(stay) 0.70
+    FROM S:  G 0.03, R 0.05, D 0.15, S(stay) 0.77
+    FROM D:  G 0.15, R 0.03, S 0.02, D(stay) 0.80
+
+  Encoded asymmetries (keep — this is the point of a matrix vs a scalar):
+    - Slowdown stickiest (0.80); main escape D->G (recovery).
+    - R->S (0.15) > S->R (0.05): overheating tips to stagflation easily;
+      climbing back out of sticky inflation is hard.
+
+──────────────────────────────────────────────
+CHANGE 5 — mechanism modifier (few knobs, heuristic)
+──────────────────────────────────────────────
+The base matrix is state-only. The mechanism conditions transition odds.
+Implement ONE concrete modifier now; others identity (TODO).
+  MECHANISM_ROW_MODIFIERS: Mapping[CausalMechanism, Mapping[MacroState, float]]
+    LEVERAGE_INSTITUTIONAL_BREAKDOWN: { DISINFLATIONARY_SLOWDOWN: 3.0 }
+      # deleveraging accelerates the path into slowdown/crisis
+    all other mechanisms: {} (identity)  # TODO confirm with more data
+  Function: transition_row_for(from_state, mechanism) ->
+    apply multipliers to the base row, then RENORMALISE to sum 1.0.
+
+──────────────────────────────────────────────
+HELPERS (stable signatures)
+──────────────────────────────────────────────
+  state_profile(state) -> MacroStateProfile
+  transition_row(from_state) -> Mapping[MacroState, float]        # base
+  transition_prob(from_state, to_state) -> float
+  transition_row_for(from_state, mechanism) -> Mapping[MacroState, float]  # modified
+  validate_transition_matrix() -> None   # rows sum 1.0 (tol 1e-9), no negatives,
+                                         # keys are exactly the 4 MacroState; called at import
+
+PRESERVE UNCHANGED (consumers depend on these):
+  RegimeProbabilities (incl. dominant_regime AND is_transition(0.6) — keep both),
+  Regime, AssetMapOverride, ValuationOverlay, MACRO_TRANSMISSION_CHANNELS,
+  MACRO_TRANSMISSION_LOGIC, get_regime, regime_names, REGIME_DEFINITIONS,
+  DEFINED_REGIME_PAIRS, UNDEFINED_REGIME_PAIR_RATIONALE.
+  Every Regime keeps observable_trigger_names, causal_story,
+  asset_priors_are_heuristic=True.
+
+UPDATE:
+  __init__.py — remove the two deleted states from any export list.
+  tests/test_policy_and_regimes.py — update the expected DEFINED_REGIME_PAIRS
+    set to the 8 re-homed pairs; keep the is_transition 0.55/0.65 test as-is.
+  ADD tests: every TRANSITION_MATRIX row sums to 1.0; transition_row_for under
+    LEVERAGE_INSTITUTIONAL_BREAKDOWN raises D's probability vs base then
+    renormalises to 1.0; all 4 MACRO_STATE_PROFILES present.
+
+ACCEPTANCE
+  python -m unittest discover tests   passes
+  validate_transition_matrix() passes at import
+  MacroState has exactly 4 members; grep finds zero refs to the removed states
+  CLI (app.py) still runs
