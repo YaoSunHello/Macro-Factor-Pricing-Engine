@@ -112,9 +112,17 @@ listed platforms keep `us_domiciled_etfs` disabled for UK retail suitability.
 
 ### Macro Regime Layer
 
-`src/macro_factor_pricing_engine/regimes.py` records the two-axis macro regime layer.
-It separates macro state from causal mechanism because the same state can require
-opposite asset calls depending on why it exists.
+`src/macro_factor_pricing_engine/regimes.py` records the market-regime layer as two
+separate ideas:
+
+1. `MacroState`: the structural growth/inflation quadrant.
+2. `CausalMechanism`: the shock or transmission mechanism explaining why the state is
+   happening.
+
+This separation matters because the same growth/inflation state can produce different
+asset behavior depending on the mechanism. For example, sticky inflation with policy
+disruption is hostile to long-duration bonds, while sticky inflation with leverage or
+institutional stress can restore a flight-to-quality bid.
 
 Macro states:
 
@@ -130,6 +138,9 @@ Causal mechanisms:
 - `deliberate_policy_disruption`
 - `leverage_institutional_breakdown`
 
+Former stand-alone labels for liquidity stress and tightening shocks have been moved
+onto the mechanism axis. They are no longer structural macro states.
+
 Transmission channels:
 
 - growth;
@@ -142,7 +153,17 @@ Valuation and positioning are explicitly not macro channels. They are represente
 separate placeholder `ValuationOverlay`, owned outside the macro-to-asset map and used
 later to gate entry timing.
 
-Defined state x mechanism pairs:
+`MacroStateProfile` captures state-only structure before mechanism-specific playbooks
+are applied:
+
+| Macro state | Growth | Inflation | Typical interpretation |
+|---|---|---|---|
+| `goldilocks` | stable positive | low | productivity or supply expansion supports growth without inflation pressure |
+| `reflation` | accelerating | rising | cyclical demand or fiscal impulse lifts nominal growth |
+| `stagflation` | decelerating | sticky high | supply shock or policy distortion pressures margins and real activity |
+| `disinflationary_slowdown` | decelerating | falling | demand exhaustion or deleveraging pulls inflation and growth lower |
+
+Defined state x mechanism playbooks:
 
 | Macro state | Causal mechanism | Why defined |
 |---|---|---|
@@ -151,7 +172,7 @@ Defined state x mechanism pairs:
 | `stagflation` | `deliberate_policy_disruption` | inflation/policy/fiscal pressure dominates |
 | `stagflation` | `leverage_institutional_breakdown` | stress can restore duration flight-to-quality |
 | `disinflationary_slowdown` | `cyclical_no_acute_mechanism` | normal slowdown with easing optionality |
-| `disinflationary_slowdown` | `peg_or_promise_break` | anchor break/contagion playbook |
+| `disinflationary_slowdown` | `peg_or_promise_break` | anchor break or currency/sovereign stress causing risk-off demand collapse |
 | `disinflationary_slowdown` | `leverage_institutional_breakdown` | deleveraging and policy-response playbook |
 | `disinflationary_slowdown` | `deliberate_policy_disruption` | forced repricing from policy/real-rate shock |
 
@@ -161,13 +182,22 @@ leading asset classes, expected lagging asset classes, observable trigger names,
 mechanism-specific asset-map overrides. Leading/lagging lists are labelled as heuristic
 theory-priors, not fitted estimates.
 
-`MACRO_STATE_PROFILES` records structural descriptors for the four state quadrants:
-growth direction, inflation direction, typical root causes, typical drivers, and key
-indicators. `TRANSITION_MATRIX` records a monthly, heuristic state-only transition prior
-whose rows sum to 1.0. It is data only; transition-intensity scoring is intentionally
-left for a later module. `transition_row_for(...)` applies the first mechanism modifier:
-leverage/institutional breakdown increases the probability of moving into
-`disinflationary_slowdown`, then renormalizes the row.
+The state transition layer is deliberately simple and data-only:
+
+- `TRANSITION_TIME_STEP = "monthly"`;
+- `TRANSITION_MATRIX_IS_HEURISTIC = True`;
+- every row in `TRANSITION_MATRIX` sums to 1.0;
+- the diagonal stay term represents regime persistence;
+- `disinflationary_slowdown` is the stickiest state at 0.80;
+- `reflation -> stagflation` is higher than `stagflation -> reflation`, reflecting
+  that overheating can tip into sticky inflation faster than sticky inflation usually
+  resolves.
+
+`transition_row_for(from_state, mechanism)` applies the first mechanism modifier:
+`leverage_institutional_breakdown` increases the probability of moving into
+`disinflationary_slowdown` and then renormalizes the row. Other mechanisms are identity
+modifiers for now. No transition-intensity scorer, entropy/drift logic, hysteresis
+logic, point-in-time transition model, or backtest timing engine exists yet.
 
 The key test anchor is stagflation:
 
