@@ -12,7 +12,7 @@
     <header class="topbar">
       <div>
         <h1>Macro Regime Dashboard</h1>
-        <p>Read-only analysis state</p>
+        <p id="load-status" aria-live="polite">Loading analysis state</p>
       </div>
       <button id="refresh" type="button" title="Refresh dashboard state">Refresh</button>
     </header>
@@ -23,7 +23,7 @@
       <section class="panel grid-panel">
         <div class="panel-heading">
           <h2>Two-Axis Regime Grid</h2>
-          <span id="active-count" class="metric"></span>
+          <span id="active-count" class="metric">0 active cells</span>
         </div>
         <div id="regime-grid" class="regime-grid" aria-label="Macro regime probability grid"></div>
       </section>

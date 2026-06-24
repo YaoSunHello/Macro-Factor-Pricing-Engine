@@ -72,6 +72,7 @@ class ApiPhase1Tests(unittest.TestCase):
 
         self.assertIn("regime-grid", html)
         self.assertIn("transition-banner", html)
+        self.assertIn("load-status", html)
         self.assertNotIn("<input", html)
         self.assertNotIn("<textarea", html)
         self.assertNotIn("<select", html)
@@ -90,6 +91,22 @@ class ApiPhase1Tests(unittest.TestCase):
             1.0,
             delta=1e-9,
         )
+
+    @unittest.skipIf(app is None, "FastAPI dependency is not installed")
+    def test_frontend_routes_are_served_when_fastapi_is_available(self):
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        html = client.get("/")
+        javascript = client.get("/static/app.js")
+        css = client.get("/static/styles.css")
+
+        self.assertEqual(html.status_code, 200)
+        self.assertIn("Macro Regime Dashboard", html.text)
+        self.assertEqual(javascript.status_code, 200)
+        self.assertIn("drawDistributionFallback", javascript.text)
+        self.assertEqual(css.status_code, 200)
+        self.assertIn("overflow-wrap", css.text)
 
 
 if __name__ == "__main__":

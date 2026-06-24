@@ -369,10 +369,11 @@ The endpoint serializes the existing `run_analysis()` output into JSON for the U
 
 - two-axis regime grid with active/undefined cells;
 - transition banner when no regime holds more than 60%;
-- full regime distribution bar/chart;
+- full regime distribution bar/chart, with a local canvas fallback if Chart.js is not
+  available;
 - dominant-regime explanation;
 - scores panel, with overlay modifier labelled as computed but not yet applied;
-- pending target weights.
+- pending target weights with one-decimal percentage precision.
 
 Run locally after installing project dependencies:
 
@@ -386,6 +387,19 @@ Then open `http://127.0.0.1:8000/`.
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests
+```
+
+Focused test commands:
+
+```bash
+# Frontend/API seam only
+PYTHONPATH=src python3 -m unittest tests.test_api_phase1
+
+# Full suite
+PYTHONPATH=src python3 -m unittest discover tests
+
+# CLI smoke test
+PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
 ```
 
 Current test coverage checks that:
@@ -405,6 +419,7 @@ Current test coverage checks that:
 - benchmark horizons are present, valid against the universe, and sum to 1.0;
 - `/api/state` serializes valid Phase 1 dashboard JSON and the frontend remains
   read-only;
+- the dashboard root page and static frontend assets are served by the FastAPI app;
 - regime detection lag budget exists in policy;
 - Treasury policy exists as structured data, not an autopilot scorer.
 - rates loop runs end-to-end on the committed snapshot;
@@ -445,6 +460,9 @@ The next planned module is Stage 1 regime classification:
   dashboard; Phase 2 ingestion remains intentionally unstarted.
 - `2026-06-24`: Collapsed macro states to four structural quadrants, re-homed mechanism
   playbooks, and added state profiles plus a heuristic monthly transition matrix.
+- `2026-06-24`: Hardened the local dashboard frontend with exact target-weight
+  percentages, a loading/error status, static-route tests, and an offline-safe chart
+  fallback.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.

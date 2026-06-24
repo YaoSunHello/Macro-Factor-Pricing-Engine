@@ -130,6 +130,7 @@ button {
   min-height: 74px;
   padding: 10px;
   background: var(--surface);
+  overflow-wrap: anywhere;
 }
 
 .grid-header,
@@ -172,6 +173,11 @@ button {
 .cell-weight {
   font-size: 18px;
   font-weight: 800;
+}
+
+#distribution-chart {
+  width: 100%;
+  max-width: 100%;
 }
 
 .split {
@@ -257,6 +263,7 @@ li {
   margin: 2px 0 0;
   font-size: 18px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 880px) {

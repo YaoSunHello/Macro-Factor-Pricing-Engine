@@ -14,8 +14,13 @@ const mechanismNames = {
 
 let distributionChart = null;
 
-function pct(value) {
-  return `${Math.round(value * 100)}%`;
+function pct(value, digits = 0) {
+  const formatted = (value * 100).toFixed(digits);
+  return `${formatted.replace(/\.0$/, "")}%`;
+}
+
+function setStatus(message) {
+  document.getElementById("load-status").textContent = message;
 }
 
 function pairKey(state, mechanism) {
@@ -94,12 +99,16 @@ function renderDistribution(data) {
   `).join("");
 
   const canvas = document.getElementById("distribution-chart");
-  if (!window.Chart || !canvas) return;
+  if (!canvas) return;
+  if (!window.Chart) {
+    drawDistributionFallback(canvas, regimes);
+    return;
+  }
   if (distributionChart) distributionChart.destroy();
   distributionChart = new Chart(canvas, {
     type: "bar",
     data: {
-      labels: regimes.map((regime) => `${stateNames[regime.state] || regime.state}`),
+      labels: regimes.map((regime) => `${stateNames[regime.state] || regime.state} / ${mechanismNames[regime.mechanism] || regime.mechanism}`),
       datasets: [{
         data: regimes.map((regime) => regime.weight),
         backgroundColor: "#0f766e",
@@ -113,6 +122,27 @@ function renderDistribution(data) {
         y: { min: 0, max: 1, ticks: { callback: (value) => `${value * 100}%` } },
       },
     },
+  });
+}
+
+function drawDistributionFallback(canvas, regimes) {
+  const context = canvas.getContext("2d");
+  const width = canvas.width || canvas.clientWidth || 640;
+  const height = canvas.height || 150;
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#f5f7f8";
+  context.fillRect(0, 0, width, height);
+  const barGap = 12;
+  const barHeight = Math.max(16, (height - barGap * (regimes.length + 1)) / regimes.length);
+  regimes.forEach((regime, index) => {
+    const y = barGap + index * (barHeight + barGap);
+    const barWidth = Math.max(2, (width - 160) * regime.weight);
+    context.fillStyle = "#0f766e";
+    context.fillRect(150, y, barWidth, barHeight);
+    context.fillStyle = "#182022";
+    context.font = "12px system-ui, sans-serif";
+    context.fillText(stateNames[regime.state] || regime.state, 8, y + barHeight - 3);
+    context.fillText(pct(regime.weight), 158 + barWidth, y + barHeight - 3);
   });
 }
 
@@ -150,12 +180,13 @@ function renderTargets(data) {
         <strong>${weight.ticker}</strong>
         <div class="metric">${weight.bucket}</div>
       </div>
-      <strong>${pct(weight.weight)}</strong>
+      <strong>${pct(weight.weight, 1)}</strong>
     </div>
   `).join("");
 }
 
 async function loadState() {
+  setStatus("Refreshing analysis state");
   const response = await fetch("/api/state");
   if (!response.ok) throw new Error(`State request failed: ${response.status}`);
   const data = await response.json();
@@ -165,16 +196,19 @@ async function loadState() {
   renderDominant(data);
   renderScores(data);
   renderTargets(data);
+  setStatus(`Loaded ${data.regime_distribution.length} regime probabilities`);
 }
 
 document.getElementById("refresh").addEventListener("click", () => {
   loadState().catch((error) => {
+    setStatus("Unable to load analysis state");
     document.getElementById("transition-banner").hidden = false;
     document.getElementById("transition-banner").textContent = error.message;
   });
 });
 
 loadState().catch((error) => {
+  setStatus("Unable to load analysis state");
   document.getElementById("transition-banner").hidden = false;
   document.getElementById("transition-banner").textContent = error.message;
 });
