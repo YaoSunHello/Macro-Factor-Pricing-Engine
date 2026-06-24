@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Macro Factor Pricing Engine</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Macro Regime Dashboard</h1>
+        <p>Read-only analysis state</p>
+      </div>
+      <button id="refresh" type="button" title="Refresh dashboard state">Refresh</button>
+    </header>
+
+    <main class="dashboard">
+      <section id="transition-banner" class="transition-banner" hidden></section>
+
+      <section class="panel grid-panel">
+        <div class="panel-heading">
+          <h2>Two-Axis Regime Grid</h2>
+          <span id="active-count" class="metric"></span>
+        </div>
+        <div id="regime-grid" class="regime-grid" aria-label="Macro regime probability grid"></div>
+      </section>
+
+      <section class="split">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Distribution</h2>
+            <span id="distribution-total" class="metric"></span>
+          </div>
+          <canvas id="distribution-chart" height="150" aria-label="Regime distribution chart"></canvas>
+          <div id="distribution-list" class="distribution-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Dominant Regime</h2>
+            <span id="dominant-name" class="metric"></span>
+          </div>
+          <p id="dominant-story" class="story"></p>
+          <div class="asset-columns">
+            <div>
+              <h3>Leading</h3>
+              <ul id="leading-assets"></ul>
+            </div>
+            <div>
+              <h3>Lagging</h3>
+              <ul id="lagging-assets"></ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="split">
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Scores</h2>
+            <span class="metric">overlay computed, not yet applied</span>
+          </div>
+          <dl id="scores" class="score-grid"></dl>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Target Weights</h2>
+            <span class="metric">pending analysis</span>
+          </div>
+          <div id="target-weights" class="target-list"></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

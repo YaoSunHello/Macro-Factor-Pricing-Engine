@@ -20,6 +20,7 @@ package under `src/macro_factor_pricing_engine` with:
 - a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
 - a rates-only end-to-end analysis loop that runs from committed snapshot data to a
   pending recommendation;
+- a Phase 1 read-only local web dashboard backed by `GET /api/state`;
 - a broker API setup registry that validates environment-variable readiness for
   Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and Plus500;
 - a focused unit test suite for the universe, regime, and policy records.
@@ -45,6 +46,7 @@ Macro-Factor-Pricing-Engine/
 │       ├── TreasuryPolicy.md
 │       ├── universe.py
 │       ├── api_keys.py
+│       ├── api.py
 │       ├── app.py
 │       ├── rates_scorer.py
 │       ├── sizing.py
@@ -57,7 +59,13 @@ Macro-Factor-Pricing-Engine/
 │           └── snapshot_2026_06_18.json
 
 ├── tests/
-│   └── test_policy_and_regimes.py
+│   ├── test_policy_and_regimes.py
+│   ├── test_benchmarks.py
+│   └── test_api_phase1.py
+├── frontend/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
 ├── pyproject.toml
 ├── README.md
 ├── Notes
@@ -298,6 +306,44 @@ STAGE 1 PLACEHOLDER - regime classification from data is the priority unbuilt mo
 The future classifier must emit the same `RegimeProbabilities` interface. No validation,
 backtest, or golden-scenario module exists in this pass.
 
+### Local Web Dashboard
+
+Phase 1 of the frontend is implemented as a read-only local dashboard. It does not
+compute regimes, scores, or weights, and it does not persist discretionary signals.
+
+`src/macro_factor_pricing_engine/api.py` exposes:
+
+```text
+GET /api/state
+```
+
+The endpoint serializes the existing `run_analysis()` output into JSON for the UI:
+
+- full regime probability distribution, not only the dominant regime;
+- dominant regime and transition metadata;
+- 6 x 4 macro-state/causal-mechanism grid axes;
+- defined regime pairs;
+- rates scores and fired triggers;
+- pending target weights;
+- asset-class names from the universe.
+
+`frontend/` is a static SPA using Chart.js and plain HTML/CSS/JS. It renders:
+
+- two-axis regime grid with active/undefined cells;
+- transition banner when no regime holds more than 60%;
+- full regime distribution bar/chart;
+- dominant-regime explanation;
+- scores panel, with overlay modifier labelled as computed but not yet applied;
+- pending target weights.
+
+Run locally after installing project dependencies:
+
+```bash
+PYTHONPATH=src uvicorn macro_factor_pricing_engine.api:app --reload
+```
+
+Then open `http://127.0.0.1:8000/`.
+
 ## Test Command
 
 ```bash
@@ -318,6 +364,8 @@ Current test coverage checks that:
 - broker API setup aliases resolve and missing credentials are reported without exposing
   secret values;
 - benchmark horizons are present, valid against the universe, and sum to 1.0;
+- `/api/state` serializes valid Phase 1 dashboard JSON and the frontend remains
+  read-only;
 - regime detection lag budget exists in policy;
 - Treasury policy exists as structured data, not an autopilot scorer.
 - rates loop runs end-to-end on the committed snapshot;
@@ -354,6 +402,8 @@ The next planned module is Stage 1 regime classification:
   matrix while keeping all allocation approvals closed.
 - `2026-06-24`: Added horizon-specific strategic benchmark blends for `10y`, `5y`,
   `1y`, and `1q`, validated against the asset-class universe.
+- `2026-06-24`: Added Phase 1 read-only FastAPI JSON seam and static frontend regime
+  dashboard; Phase 2 ingestion remains intentionally unstarted.
 
 ## Methodology
 Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.

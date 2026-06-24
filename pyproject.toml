@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Retail-accessible macro regime and allocation policy engine."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
