@@ -99,21 +99,26 @@ The recommendation status is always `PENDING`. Live trading is disabled.
 ## Broker API Setup
 
 `api_keys.py` records credential setup metadata for Trading 212, Interactive Brokers,
-Robinhood, IG Group, Capital.com, and Plus500. It reads only environment variables and
-does not build broker clients, open sessions, or place orders.
+Robinhood, IG Group, Capital.com, and Plus500. `trading212.py` adds a read-only
+Trading 212 client for account summary, positions, and instrument metadata. `ig.py`
+adds a read-only IG client for sessions, accounts, and market lookup. No module
+places orders.
 
 The setup registry currently expects:
 
 | Broker | Required environment variables | Notes |
 |---|---|---|
-| Trading 212 | `TRADING212_API_KEY` | Personal API key setup only |
+| Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET` | Read-only client available |
 | Interactive Brokers | `IBKR_GATEWAY_BASE_URL` | Client Portal Gateway URL/session setup only |
 | Robinhood | `ROBINHOOD_API_KEY`, `ROBINHOOD_PRIVATE_KEY` | Execution disabled until the official API scope is approved |
-| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Demo/live environment stays explicit |
+| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Read-only client available; demo/live environment stays explicit |
 | Capital.com | `CAPITAL_COM_API_KEY`, `CAPITAL_COM_IDENTIFIER`, `CAPITAL_COM_API_PASSWORD` | Demo base URL is the default template |
 | Plus500 | none | No public retail trading API is configured |
 
-Use `.env.example` as a local template. Real `.env` files are ignored by git.
+Use `.env.example` as a local template. Real `.env` files are ignored by git. On this
+workstation, Trading 212 credentials can be sourced from
+`~/.config/macro-factor-pricing-engine/trading212.env`, and IG credentials can be
+sourced from `~/.config/macro-factor-pricing-engine/ig.env`.
 
 ## Data
 

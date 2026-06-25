@@ -60,7 +60,7 @@ BROKER_API_SETUPS: dict[Broker, BrokerApiSetup] = {
     Broker.TRADING212: BrokerApiSetup(
         broker=Broker.TRADING212,
         display_name="Trading 212",
-        required_env_vars=("TRADING212_API_KEY",),
+        required_env_vars=("TRADING212_API_KEY", "TRADING212_API_SECRET"),
         optional_env_vars=("TRADING212_BASE_URL",),
         default_base_url_env_var="TRADING212_BASE_URL",
         docs_url="https://t212public-api-docs.redoc.ly/",

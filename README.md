@@ -264,14 +264,26 @@ environment-variable readiness checks for:
 
 | Broker | Required environment variables | Execution support in registry |
 |---|---|---|
-| Trading 212 | `TRADING212_API_KEY` | Configurable, not wired to execution |
+| Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET` | Read-only account, positions, and instrument metadata client |
 | Interactive Brokers | `IBKR_GATEWAY_BASE_URL` | Configurable via Client Portal Gateway, not wired to execution |
 | Robinhood | `ROBINHOOD_API_KEY`, `ROBINHOOD_PRIVATE_KEY` | Disabled until the exact official API surface is approved |
-| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Configurable, not wired to execution |
+| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Read-only session, accounts, and market lookup client |
 | Capital.com | `CAPITAL_COM_API_KEY`, `CAPITAL_COM_IDENTIFIER`, `CAPITAL_COM_API_PASSWORD` | Configurable, not wired to execution |
 | Plus500 | none | Unsupported unless Plus500 grants an official API integration |
 
 Use `.env.example` as the local setup template. Real `.env` files are ignored by git.
+For this workstation, Trading 212 credentials can also be loaded from the local file
+outside the repository:
+
+```bash
+source ~/.config/macro-factor-pricing-engine/trading212.env
+```
+
+IG credentials can be loaded locally the same way:
+
+```bash
+source ~/.config/macro-factor-pricing-engine/ig.env
+```
 
 Example readiness check:
 
@@ -293,8 +305,28 @@ from macro_factor_pricing_engine.api_keys import load_broker_api_credentials
 credentials = load_broker_api_credentials("capital.com")
 ```
 
-The returned values are for a future broker-client layer only. They are not consumed by
-the current recommendation loop.
+Trading 212 has a small read-only client:
+
+```python
+from macro_factor_pricing_engine.trading212 import Trading212Client
+
+client = Trading212Client.from_environment()
+summary = client.account_summary()
+positions = client.positions()
+```
+
+The current recommendation loop still does not place orders or consume broker account
+data automatically.
+
+IG Group has a read-only client:
+
+```python
+from macro_factor_pricing_engine.ig import IgClient
+
+client = IgClient.from_environment()
+session = client.create_session()
+accounts = client.accounts(session)
+```
 
 ### Treasury Policy
 
