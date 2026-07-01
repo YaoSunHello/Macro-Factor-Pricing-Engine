@@ -9,7 +9,7 @@ The mechanism axis matters because the same growth/inflation state can call for 
 
 Extensive historical research — spanning major financial cycles, crises, and recoveries from 1900–2022 — informs which asset classes are expected to lead or lag under each defined regime pair. This produces theory-driven priors, not fitted or backtested estimates.
 
-The model is intended to take in current cross-asset conditions (equities, credit, commodities, monetary and fiscal policy, currency, and rates) to infer the current regime as a soft probability distribution across the 16 cells, rather than a single hard label. Regime classification itself is not yet automated — a live classifier ("Stage 1") is the next planned module — but the interface it will eventually feed (RegimeProbabilities) already exists.
+The model is intended to take in current cross-asset conditions (equities, credit, commodities, monetary and fiscal policy, currency, and rates) to infer the current regime as a soft probability distribution across the 16 cells, rather than a single hard label. 
 
 A heuristic monthly transition matrix, calibrated from historical regime persistence, encodes the assumption that a regime is most likely to persist unless a significant shock shifts probability mass toward another quadrant. This transition structure feeds into asset allocation tilts away from a strategic neutral benchmark, which is adjustable by investment horizon (10y, 5y, 1y, 1q).
 
@@ -19,9 +19,6 @@ A separate ValuationOverlay — not part of the macro regime grid — is reserve
 
 The system is research-stage and explicitly not tradeable: every instrument in the universe is unapproved for allocation, broker connections are credential-only plumbing with no live execution, and no signal can move portfolio weights without explicit human confirmation.
 
-## Documentation
-
-Full project documentation is available at [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).
 
 ## Current Implementation Status
 
@@ -67,7 +64,6 @@ Macro-Factor-Pricing-Engine/
 │       ├── universe.py
 │       ├── api_keys.py
 │       ├── api.py
-│       ├── app.py
 │       ├── rates_scorer.py
 │       ├── sizing.py
 │       ├── inventory.py
