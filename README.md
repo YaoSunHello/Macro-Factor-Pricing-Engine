@@ -1,7 +1,7 @@
 # Macro-Factor-Pricing-Engine
 Project Introduction
 
-This project builds a top-down framework for two linked tasks: macro-driven asset allocation, and (eventually) policy-driven sub-asset-class portfolio construction.
+This project builds a top-down framework for two linked tasks: macro-driven asset allocation, and (eventually) policy-driven sub-asset-class portfolio construction.\\
 
 Asset allocation is driven by a macro regime detection framework. The framework assumes that any market environment can be classified along two independent axes: a macro state (one of four structural growth/inflation quadrants — Goldilocks, Reflation, Stagflation, Disinflationary Slowdown) and a causal mechanism (one of four transmission mechanisms explaining why that state is occurring — e.g. ordinary cyclical dynamics, a currency/peg break, deliberate policy disruption, or leverage/institutional stress). Crossing these two axes gives a 4×4 grid of 16 possible regime cells; currently 8 of those cells have defined, research-backed playbooks, and the rest are left undefined until a distinct strategy case justifies building one out.
 
