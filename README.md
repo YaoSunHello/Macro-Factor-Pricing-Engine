@@ -1,4 +1,4 @@
-# Macro-Factor-Pricing-Engine
+# Macro Driven Investment Decision
 Project Introduction
 
 This project builds a top-down framework for two linked tasks: macro-driven asset allocation, and (eventually) policy-driven sub-asset-class portfolio construction.
