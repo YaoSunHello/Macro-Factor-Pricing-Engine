@@ -1,13 +1,22 @@
 # Macro-Factor-Pricing-Engine
 Project Introduction
+
 This project builds a top-down framework for two linked tasks: macro-driven asset allocation, and (eventually) policy-driven sub-asset-class portfolio construction.
+
 Asset allocation is driven by a macro regime detection framework. The framework assumes that any market environment can be classified along two independent axes: a macro state (one of four structural growth/inflation quadrants — Goldilocks, Reflation, Stagflation, Disinflationary Slowdown) and a causal mechanism (one of four transmission mechanisms explaining why that state is occurring — e.g. ordinary cyclical dynamics, a currency/peg break, deliberate policy disruption, or leverage/institutional stress). Crossing these two axes gives a 4×4 grid of 16 possible regime cells; currently 8 of those cells have defined, research-backed playbooks, and the rest are left undefined until a distinct strategy case justifies building one out.
+
 The mechanism axis matters because the same growth/inflation state can call for very different asset positioning depending on its cause — for example, stagflation driven by policy disruption is hostile to long-duration bonds, while stagflation driven by leverage/institutional stress can restore a flight-to-quality bid for the same bonds.
+
 Extensive historical research — spanning major financial cycles, crises, and recoveries from 1900–2022 — informs which asset classes are expected to lead or lag under each defined regime pair. This produces theory-driven priors, not fitted or backtested estimates.
+
 The model is intended to take in current cross-asset conditions (equities, credit, commodities, monetary and fiscal policy, currency, and rates) to infer the current regime as a soft probability distribution across the 16 cells, rather than a single hard label. Regime classification itself is not yet automated — a live classifier ("Stage 1") is the next planned module — but the interface it will eventually feed (RegimeProbabilities) already exists.
+
 A heuristic monthly transition matrix, calibrated from historical regime persistence, encodes the assumption that a regime is most likely to persist unless a significant shock shifts probability mass toward another quadrant. This transition structure feeds into asset allocation tilts away from a strategic neutral benchmark, which is adjustable by investment horizon (10y, 5y, 1y, 1q).
+
 Sub-asset-class portfolio construction is currently policy-driven rather than model-driven. Only one policy exists so far: a structured government bond (Treasury) strategy policy, encoding signal rules, fiscal credibility gates, and segment positioning logic, but not yet wired to live scoring or execution.
+
 A separate ValuationOverlay — not part of the macro regime grid — is reserved for gating entry timing based on valuation and positioning, and is not yet implemented.
+
 The system is research-stage and explicitly not tradeable: every instrument in the universe is unapproved for allocation, broker connections are credential-only plumbing with no live execution, and no signal can move portfolio weights without explicit human confirmation.
 
 ## Documentation
