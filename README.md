@@ -1,4 +1,4 @@
-# Macro Driven Investment Decision
+# Macro Driven Tactical Asset Allocation
 ## **Project Introduction**
 
 This project builds a top-down framework for two linked tasks: macro-driven tactical asset allocation, and (stage 2) policy-driven sub-asset-class portfolio construction and optimization.
