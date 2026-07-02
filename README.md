@@ -335,8 +335,7 @@ Raw inputs (all from free public sources):
 Add fetch functions for each raw input above, using free public APIs only
 (FRED via `fredapi` or direct HTTP, NY Fed ACM model CSV, CME FedWatch scrape or API).
 Each function returns `(value: float | None, as_of_date: date)`. Follow the existing
-no-lookahead pattern already used elsewhere in `data/sources.py`. Do NOT add any
-Bloomberg or paid-data dependency here — that stays in the discretionary/manual path.
+no-lookahead pattern already used elsewhere in `data/sources.py`. 
 
 ### 3. `regime_classifier.py` (new file)
 Implement:
