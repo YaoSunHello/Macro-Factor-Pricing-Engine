@@ -20,29 +20,16 @@ A heuristic quarterly transition matrix, calibrated from historical regime persi
 The first implementation pass is complete. The repository now contains a small Python
 package under `src/macro_factor_pricing_engine` with:
 
-- a UK-retail UCITS/LSE-listed asset-class universe for research scope, with every
-  instrument still unapproved for allocation;
+- a UK-retail UCITS/LSE-listed asset-class universe for research scope;
 - two-axis macro regime definitions: macro state plus causal mechanism;
-- state-level macro profiles and a heuristic monthly transition matrix for the
+- state-level macro profiles and a heuristic quarterly transition matrix for the
   four structural macro quadrants;
 - a policy module that records strategy governance, review triggers, risk controls, and
   human-input confirmation rules;
 - a strategic overall-portfolio benchmark module with horizon-specific neutral SAA
   blends for `10y`, `5y`, `1y`, and `1q`;
 - a structured Treasury strategy policy module derived from `TreasuryPolicy.md`;
-- a rates-only end-to-end analysis loop that runs from committed snapshot data to a
-  pending recommendation;
-- a Phase 1 read-only local web dashboard backed by `GET /api/state`;
-- a broker API setup registry that validates environment-variable readiness for
-  Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and Plus500;
-- a focused unit test suite for the universe, regime, and policy records.
 
-The system is not tradeable yet. Asset classes are approved as categories, but no ticker
-can receive a paper or live allocation until its `approved_for_allocation` flag is
-explicitly reviewed and switched on.
-
-Broker API setup is credential plumbing only. It does not create live broker clients,
-open sessions, or submit orders.
 
 ## Project Structure
 
@@ -83,42 +70,6 @@ Macro-Factor-Pricing-Engine/
 └── LICENSE
 ```
 
-## Implemented Modules
-
-### Universe Scaffold
-
-`src/macro_factor_pricing_engine/universe.py` defines the approved asset-class map.
-The empty/US ETF placeholder universe has been replaced with representative
-UK-retail-accessible UCITS or LSE-listed instruments. Every security remains marked
-`USER TO CONFIRM`, and every `approved_for_allocation` flag is `False`, so
-`has_tradeable_instruments()` still returns `False`.
-
-Current research-scope buckets:
-
-- `us_equities`: `CSPX`, `VUSA`
-- `global_developed_equities`: `SWDA`, `VEVE`
-- `emerging_market_equities`: `EIMI`, `VFEM`
-- `short_duration_government_bonds`: `IB01`, `IBTA`
-- `intermediate_duration_government_bonds`: `IBTM`
-- `long_duration_government_bonds`: `IDTL`, `DTLA`
-- `inflation_linked_bonds`: `ITPS`
-- `investment_grade_credit`: `LQDE`
-- `high_yield_credit`: `IHYU`
-- `gold`: `SGLN`, `SGLD`
-- `broad_commodities`: `CMOD`, `ICOM`
-- `usd_proxy`: `IB01`
-- `cash`: `IGLS`
-
-Some ISINs remain explicit `TODO confirm` entries rather than guessed identifiers.
-
-Membership is used only for analysis scope. Allocation approval remains separate and
-human-gated.
-
-The module also records a platform capability matrix for `ibkr_uk`, `trading212`,
-`hargreaves_lansdown`, `aj_bell`, and `investengine`. The key distinction is that only
-`ibkr_uk` has `futures` and `fx_spot` enabled, `trading212` has `cfds` enabled, and all
-listed platforms keep `us_domiciled_etfs` disabled for UK retail suitability.
-
 ### Macro Regime Layer
 
 `src/macro_factor_pricing_engine/regimes.py` records the market-regime layer as two
@@ -146,9 +97,6 @@ Causal mechanisms:
 - `peg_or_promise_break`
 - `deliberate_policy_disruption`
 - `leverage_institutional_breakdown`
-
-Former stand-alone labels for liquidity stress and tightening shocks have been moved
-onto the mechanism axis. They are no longer structural macro states.
 
 Transmission channels:
 
@@ -193,7 +141,7 @@ theory-priors, not fitted estimates.
 
 The state transition layer is deliberately simple and data-only:
 
-- `TRANSITION_TIME_STEP = "monthly"`;
+- `TRANSITION_TIME_STEP = "quarterly"`;
 - `TRANSITION_MATRIX_IS_HEURISTIC = True`;
 - every row in `TRANSITION_MATRIX` sums to 1.0;
 - the diagonal stay term represents regime persistence;
