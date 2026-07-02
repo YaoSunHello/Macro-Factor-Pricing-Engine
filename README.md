@@ -301,7 +301,7 @@ PYTHONPATH=src python3 -m unittest discover tests
 PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
 ```
 
-## Prompt
+[## Prompt
 # Prompt: Build Stage 1 Regime Classification Module
 
 ## Context
@@ -393,3 +393,4 @@ Implement `apply_override(computed: RegimeProbabilities, override: RegimeOverrid
 - Do not add Bloomberg-sourced fields to the automated `data/sources.py` path —
   Bloomberg-only inputs (e.g. sovereign CDS from a terminal) stay in the discretionary
   `RegimeOverride.reason` free-text field, not as a structured automated input.
+](https://github.com/YaoSunHello/Macro-Factor-Pricing-Engine/blob/main/docs/market_history_patterns.md)
