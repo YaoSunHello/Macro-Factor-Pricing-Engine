@@ -214,76 +214,6 @@ and every horizon must sum to 1.0 within `1e-9`. Omitted buckets are treated as 
 `benchmark_weight(horizon, asset_class)`. Starter weights are `USER TO CONFIRM` policy
 defaults, not live allocations.
 
-### Broker API Setup
-
-`src/macro_factor_pricing_engine/api_keys.py` defines API credential setup metadata and
-environment-variable readiness checks for:
-
-| Broker | Required environment variables | Execution support in registry |
-|---|---|---|
-| Trading 212 | `TRADING212_API_KEY`, `TRADING212_API_SECRET` | Read-only account, positions, and instrument metadata client |
-| Interactive Brokers | `IBKR_GATEWAY_BASE_URL` | Configurable via Client Portal Gateway, not wired to execution |
-| Robinhood | `ROBINHOOD_API_KEY`, `ROBINHOOD_PRIVATE_KEY` | Disabled until the exact official API surface is approved |
-| IG Group | `IG_API_KEY`, `IG_USERNAME`, `IG_PASSWORD` | Read-only session, accounts, and market lookup client |
-| Capital.com | `CAPITAL_COM_API_KEY`, `CAPITAL_COM_IDENTIFIER`, `CAPITAL_COM_API_PASSWORD` | Configurable, not wired to execution |
-| Plus500 | none | Unsupported unless Plus500 grants an official API integration |
-
-Use `.env.example` as the local setup template. Real `.env` files are ignored by git.
-For this workstation, Trading 212 credentials can also be loaded from the local file
-outside the repository:
-
-```bash
-source ~/.config/macro-factor-pricing-engine/trading212.env
-```
-
-IG credentials can be loaded locally the same way:
-
-```bash
-source ~/.config/macro-factor-pricing-engine/ig.env
-```
-
-Example readiness check:
-
-```bash
-PYTHONPATH=src python3 - <<'PY'
-from macro_factor_pricing_engine.api_keys import all_broker_api_statuses
-
-for status in all_broker_api_statuses():
-    missing = ", ".join(status.missing_required_env_vars) or "none"
-    print(f"{status.setup.display_name}: configured={status.configured}, missing={missing}")
-PY
-```
-
-Credential loading is explicit:
-
-```python
-from macro_factor_pricing_engine.api_keys import load_broker_api_credentials
-
-credentials = load_broker_api_credentials("capital.com")
-```
-
-Trading 212 has a small read-only client:
-
-```python
-from macro_factor_pricing_engine.trading212 import Trading212Client
-
-client = Trading212Client.from_environment()
-summary = client.account_summary()
-positions = client.positions()
-```
-
-The current recommendation loop still does not place orders or consume broker account
-data automatically.
-
-IG Group has a read-only client:
-
-```python
-from macro_factor_pricing_engine.ig import IgClient
-
-client = IgClient.from_environment()
-session = client.create_session()
-accounts = client.accounts(session)
-```
 
 ### Treasury Policy
 
@@ -301,7 +231,6 @@ project as structured Python records:
 - add/reduce long-end-duration checklists;
 - governance cadence.
 
-It is not a live scorer. It codifies the decision-support policy for later backtesting.
 
 ### Rates Analysis Loop
 
@@ -313,25 +242,6 @@ One command runs:
 PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
 ```
 
-The loop:
-
-1. loads the committed 2026-06-18 rates snapshot through `SnapshotSource`;
-2. consumes manually supplied `RegimeProbabilities`;
-3. scores the snapshot with Treasury Block A-D logic;
-4. sizes pending target weights across in-scope rates securities;
-5. diffs against a blank/persistent inventory;
-6. appends turnover rows to `.runtime/turnover_ledger.jsonl`;
-7. computes duration, DV01, bucket exposure, and concentration flags;
-8. prints a plain-language pending recommendation.
-
-`regime_input.py` is deliberately marked:
-
-```text
-STAGE 1 PLACEHOLDER - regime classification from data is the priority unbuilt module.
-```
-
-The future classifier must emit the same `RegimeProbabilities` interface. No validation,
-backtest, or golden-scenario module exists in this pass.
 
 ### Local Web Dashboard
 
@@ -391,86 +301,96 @@ PYTHONPATH=src python3 -m unittest discover tests
 PYTHONPATH=src python3 -m macro_factor_pricing_engine.app
 ```
 
-Current test coverage checks that:
-
-- approved asset classes exist with research-scope membership;
-- no tradeable instruments are available yet;
-- regimes have causal stories and observable triggers;
-- only meaningful state x mechanism pairs are defined;
-- all four state profiles are present and transition-matrix rows sum to 1.0;
-- stagflation duration positioning flips by causal mechanism;
-- invalid `RegimeProbabilities` sums are rejected;
-- valuation overlay is not in the macro channel set;
-- human-input and universe-change triggers require confirmation;
-- policy blocks trading while tickers are empty;
-- broker API setup aliases resolve and missing credentials are reported without exposing
-  secret values;
-- benchmark horizons are present, valid against the universe, and sum to 1.0;
-- `/api/state` serializes valid Phase 1 dashboard JSON and the frontend remains
-  read-only;
-- the dashboard root page and static frontend assets are served by the FastAPI app;
-- regime detection lag budget exists in policy;
-- Treasury policy exists as structured data, not an autopilot scorer.
-- rates loop runs end-to-end on the committed snapshot;
-- recommendation remains pending;
-- weights sum to 1;
-- turnover ledger appends;
-- smoke check reproduces the hand-derived stance: overweight front-belly, underweight
-  long end, overweight 5y TIPS.
-
-## Next Module
-
-The next planned module is Stage 1 regime classification:
-
-- map public data series to the two-axis regime model;
-- emit `RegimeProbabilities` through the same interface currently filled manually;
-- enforce point-in-time availability and detection-lag charging;
-- keep the rates recommendation loop unchanged when the classifier is added.
-
-## Changelog
-
-- `2026-06-23`: Refactored regimes into two axes, `MacroState x CausalMechanism`;
-  added fiscal/sovereign as a macro channel; kept valuation/positioning as a separate
-  overlay; added `RegimeProbabilities`; added the Treasury policy as structured code;
-  preserved empty ticker dictionaries and no-trade safety invariants.
-- `2026-06-23`: Added the rates-only end-to-end analysis loop using a committed
-  2026-06-18 snapshot, manual regime probabilities, Treasury scoring, target sizing,
-  turnover ledger, first-pass risk readout, and pending recommendation output. Stage 1
-  regime classification remains the priority unbuilt module.
-- `2026-06-23`: Added broker API credential setup metadata and environment readiness
-  checks for Trading 212, Interactive Brokers, Robinhood, IG Group, Capital.com, and
-  Plus500 without enabling live execution.
-- `2026-06-24`: Replaced empty/US-placeholder universe membership with a
-  UK-retail-accessible UCITS/LSE-listed research universe and platform capability
-  matrix while keeping all allocation approvals closed.
-- `2026-06-24`: Added horizon-specific strategic benchmark blends for `10y`, `5y`,
-  `1y`, and `1q`, validated against the asset-class universe.
-- `2026-06-24`: Added Phase 1 read-only FastAPI JSON seam and static frontend regime
-  dashboard; Phase 2 ingestion remains intentionally unstarted.
-- `2026-06-24`: Collapsed macro states to four structural quadrants, re-homed mechanism
-  playbooks, and added state profiles plus a heuristic monthly transition matrix.
-- `2026-06-24`: Hardened the local dashboard frontend with exact target-weight
-  percentages, a loading/error status, static-route tests, and an offline-safe chart
-  fallback.
-
-## Methodology
-Based on Macro Economy Machenism, build a asset allocation framework on retail accessible assets to harvest macro return with minimized risk.
-
-Indicators to watch will be public accessible information only. 
-
-Add human input function, so if i give an input of one observation of the market, one article, or a feed on X, it can be translated by a free AI API, somehow integrate this information to the existing public accessible information, and ask relavent questions to access the data source, validate the information, and maybe help with integrate to the current strategy. 
-
-Summarized by extensive market research on how different asset responds to events and come up with the allocation advise. and explain the reason behind the recommended the strategy.
-
-Build paper portfolio with precise sizing and backtest on the history market. Give clear guidance on how and when to trade. 
-
-Live monitor the daily PnL, turnover of the strategy. 
-
-Include Portfolio Analysis Diagnosis Tool to access the healthiness of the recommended strategy. 
-
-
 ## Prompt
+# Prompt: Build Stage 1 Regime Classification Module
 
-No active implementation prompt. The latest prompt has been implemented: the regime
-taxonomy now uses four structural macro states, state-level profiles, and a heuristic
-monthly transition matrix.
+## Context
+`src/macro_factor_pricing_engine/regime_input.py` is currently a placeholder marked
+`STAGE 1 PLACEHOLDER - regime classification from data is the priority unbuilt module`.
+It must be replaced with a deterministic classifier that consumes a fixed public-data
+snapshot and emits a `RegimeProbabilities` object matching the existing interface in
+`regimes.py`. Do not change the `RegimeProbabilities`, `Regime`, `MacroState`, or
+`CausalMechanism` definitions in `regimes.py` — this module is a new consumer/producer
+that feeds that existing interface, not a replacement for it.
+
+## Deliverables
+
+### 1. `data/regime_indicator_schema.py`
+Define a frozen dataclass `RegimeIndicatorSnapshot` with one field per raw input listed
+below. Every field is `float | None` (None = missing, must degrade gracefully, never
+silently impute). Include a `snapshot_date: date` field and an `as_of_lag_days: int`
+field per source to support point-in-time integrity checks (no lookahead).
+
+Raw inputs (all from free public sources):
+- growth: `ism_manufacturing_pmi`, `chicago_fed_nai`, `gdpnow_estimate`
+- inflation: `cpi_yoy`, `core_cpi_yoy`, `breakeven_5y5y`
+- policy_liquidity: `ust_2y_yield`, `ust_2y_yield_chg_1m`, `ust_10y_yield`,
+  `ust_10y_yield_chg_1m`, `fed_funds_implied_path_chg_3m`, `nfci`
+- risk_appetite: `ig_oas`, `ig_oas_chg_1m`, `hy_oas`, `hy_oas_chg_1m`, `vix`
+- fiscal_sovereign: `acm_term_premium_10y`, `dxy_chg_3m`, `dxy_trend_direction`
+- commodities: `broad_commodity_index_chg_3m`
+- equities: `sp500_drawdown_from_52w_high`
+
+### 2. `data/sources.py` (extend existing file)
+Add fetch functions for each raw input above, using free public APIs only
+(FRED via `fredapi` or direct HTTP, NY Fed ACM model CSV, CME FedWatch scrape or API).
+Each function returns `(value: float | None, as_of_date: date)`. Follow the existing
+no-lookahead pattern already used elsewhere in `data/sources.py`. Do NOT add any
+Bloomberg or paid-data dependency here — that stays in the discretionary/manual path.
+
+### 3. `regime_classifier.py` (new file)
+Implement:
+- `compute_channel_scores(snapshot: RegimeIndicatorSnapshot) -> ChannelScores`
+  Returns a score in [-1, 1] for each of the five `MACRO_TRANSMISSION_CHANNELS`
+  (growth, inflation, policy_liquidity, risk_appetite, fiscal_sovereign), using
+  simple, explainable transformations (e.g. z-score vs trailing 3y window, or
+  directional sign of the _chg fields). Document the exact formula per channel
+  in docstrings — no black-box scoring.
+- `derive_observable_triggers(scores: ChannelScores) -> frozenset[str]`
+  Maps channel scores to the exact `observable_trigger_names` strings already used
+  in `REGIME_DEFINITIONS` in `regimes.py` (e.g. `growth_momentum_positive`,
+  `credit_spreads_widening_fast`, `real_yields_rising`). Pull the exact trigger name
+  strings from `regimes.py` — do not invent new ones.
+- `classify_regime(snapshot: RegimeIndicatorSnapshot) -> RegimeProbabilities`
+  Uses the fired triggers to assign soft weights across the 8 currently-defined
+  `REGIME_DEFINITIONS`. Any reasonable, explainable weighting scheme is acceptable
+  for v1 (e.g. count of matched triggers per regime, normalized) as long as it's
+  documented as heuristic, matches `asset_priors_are_heuristic = True` in spirit,
+  and produces a valid `RegimeProbabilities` (weights sum to 1.0).
+
+### 4. `regime_override.py` (new file)
+Implement a `RegimeOverride` frozen dataclass: `state: MacroState`,
+`mechanism: CausalMechanism`, `confidence: float`, `reason: str`, `entered_by: str`,
+`entered_at: datetime`, `expires_at: datetime | None`.
+Implement `apply_override(computed: RegimeProbabilities, override: RegimeOverride | None) -> RegimeProbabilities`:
+- If `override` is None, return `computed` unchanged.
+- If present, return a `RegimeProbabilities` with full weight on the specified
+  regime pair (must exist in `REGIME_DEFINITIONS`, raise `KeyError` if undefined).
+- The override must route through the existing `human_input_pending` policy trigger
+  in `policy.py` — check for and honor its `requires_confirmation` flag rather than
+  applying silently.
+- Log both `computed` and the override in the returned object or a paired audit
+  record, so a human can later compare "what the data said" vs "what was overridden,"
+  and why — this history matters for evaluating whether overrides add value over time.
+
+### 5. Tests (`tests/test_regime_classifier.py`)
+- Snapshot with clearly bullish-growth/low-inflation data classifies with highest
+  weight on `goldilocks x cyclical_no_acute_mechanism`.
+- Snapshot with widening HY OAS + negative growth classifies with weight on one of
+  the `leverage_institutional_breakdown` pairs.
+- Missing/None fields degrade gracefully (lower confidence / wider distribution),
+  never crash and never silently impute a fabricated value.
+- `RegimeOverride` correctly overrides computed output and requires confirmation.
+- `RegimeOverride` referencing an undefined regime pair raises `KeyError`.
+- Full snapshot-to-classification path round-trips through `RegimeProbabilities`
+  validation (weights non-negative, sum to 1.0).
+
+## Explicit non-goals for this pass
+- Do not wire this into `sizing.py` or the rates loop yet — that's a follow-up step
+  once classification is validated standalone.
+- Do not add any HMM, ML classifier, or statistically fitted model — this is a
+  deterministic, rule-based, explainable v1, consistent with the project's existing
+  heuristic-and-labeled-as-such approach.
+- Do not add Bloomberg-sourced fields to the automated `data/sources.py` path —
+  Bloomberg-only inputs (e.g. sovereign CDS from a terminal) stay in the discretionary
+  `RegimeOverride.reason` free-text field, not as a structured automated input.
