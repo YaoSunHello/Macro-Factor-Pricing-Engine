@@ -1,0 +1,391 @@
+# Bloomberg AskB Research Request
+## US Treasury Macro Factors and Trading Signals — Chapter 5.1
+
+I am developing a systematic macro factor research framework.
+
+Please act as a Bloomberg fixed-income quantitative research and historical market-data specialist.
+
+My research is based specifically on **Chapter 5.1, “A Treasure to Behold,” of Dirk Willer et al., *Trading Global Macro Markets*.**
+
+The objective is to:
+
+1. Identify the Bloomberg datasets required to reproduce the chapter's empirical observations.
+2. Retrieve the longest reliable historical observations available.
+3. Construct candidate macroeconomic factors and trading signals implied by the chapter.
+4. Evaluate whether these signals contain predictive information about subsequent US Treasury excess returns.
+5. Provide reproducible Bloomberg data identifiers, formulas and export instructions.
+
+Do not expand the research to other sections of Chapter 5.
+
+Do not assume that the book's historical relationships are statistically significant trading strategies.
+
+If the book itself is not accessible, use the specific hypotheses described below. Do not invent additional claims about its contents.
+
+---
+
+## PART 1 — Historical Treasury performance
+
+The chapter reports long-run US Treasury performance beginning in 1973.
+
+It identifies eight Treasury excess-return drawdowns greater than 5%, including:
+
+- 1977–1981: approximately −25.5%.
+- 2020–2023: approximately −23.1%.
+
+### Required data
+
+Identify Bloomberg series for:
+
+- US Treasury total-return index.
+- US Treasury excess-return index over 3-month Treasury bills.
+- 3-month Treasury bill returns or cash benchmark.
+- Historical Treasury yield curves.
+- Historical duration and convexity, where available.
+
+Prioritize a broad US Treasury index with sufficiently long historical coverage.
+
+If the exact index underlying the book's calculations cannot be identified, provide the closest Bloomberg alternative and explain methodological differences.
+
+### Required outputs
+
+Provide:
+
+- Bloomberg ticker or security identifier.
+- Bloomberg field mnemonic.
+- Data description.
+- Currency.
+- Frequency.
+- Earliest verified observation.
+- Latest available observation.
+- Total-return versus price-return classification.
+- Whether the data are downloadable through Bloomberg Excel, BQL or BQuant.
+
+If possible, reproduce the historical Treasury excess-return drawdowns.
+
+Explain the return convention, funding benchmark and drawdown calculation.
+
+Do not approximate total returns using yield changes without explicitly identifying the approximation.
+
+---
+
+## PART 2 — Inflation and Treasury duration risk
+
+The chapter argues that inflation shocks and monetary tightening have historically been important drivers of large Treasury losses.
+
+### Required data
+
+Retrieve:
+
+**Realized inflation**
+
+- US headline CPI.
+- US core CPI.
+- US headline PCE inflation.
+- US core PCE inflation.
+
+**Market-implied inflation compensation**
+
+- US 5-year breakeven inflation.
+- US 10-year breakeven inflation.
+- US 5Y5Y forward inflation compensation.
+
+**Interest rates**
+
+- US 2-year Treasury yield.
+- US 5-year Treasury yield.
+- US 10-year Treasury yield.
+- US 30-year Treasury yield.
+- Corresponding TIPS real yields, where available.
+
+**Monetary policy**
+
+- Effective Fed Funds rate.
+- Fed target rate or target range.
+- Historical Fed Funds futures or OIS-implied policy expectations.
+
+Where available, include historical inflation-surprise data based on actual releases versus contemporaneous survey expectations.
+
+### Candidate factor construction
+
+Investigate:
+
+**Factor 1 — Inflation compensation momentum**
+
+Calculate:
+
+`BE_MOM_60D(t) = BE_10Y(t) - BE_10Y(t-60 trading days)`
+
+Interpretation:
+
+An increase in breakeven inflation may indicate rising inflation compensation and potentially greater duration risk.
+
+**Factor 2 — Inflation expectations curve**
+
+Calculate:
+
+`BE_SLOPE(t) = BE_10Y(t) - BE_5Y(t)`
+
+Interpretation:
+
+Changes in the term structure of inflation compensation may indicate shifts in perceived inflation persistence.
+
+**Factor 3 — Real-yield momentum**
+
+Calculate:
+
+`REAL_YIELD_MOM_60D(t) = REAL_YIELD_10Y(t) - REAL_YIELD_10Y(t-60 trading days)`
+
+Interpretation:
+
+An increase in real yields may signal tightening financial conditions.
+
+**Factor 4 — Inflation surprise**
+
+Where Bloomberg historical consensus data are available:
+
+`INFLATION_SURPRISE(t) = ACTUAL_CPI_RELEASE(t) - CONSENSUS_FORECAST(t)`
+
+Use the original contemporaneous consensus, not a revised historical estimate.
+
+These are candidate features, not validated trading signals.
+
+For each factor, determine whether it predicts subsequent Treasury excess returns rather than merely describing contemporaneous yield changes.
+
+---
+
+## PART 3 — Stock–bond diversification risk
+
+The chapter identifies 1994 and 2022 as years when both US equities and Treasuries experienced negative nominal returns.
+
+### Required data
+
+Retrieve:
+
+- S&P 500 total-return index.
+- US Treasury total-return index.
+- US CPI inflation.
+- US 10-year breakeven inflation.
+- US 10-year real Treasury yield.
+
+### Candidate factor construction
+
+**Factor 5 — Stock–bond rolling correlation**
+
+Calculate the trailing 60-trading-day correlation between daily S&P 500 and US Treasury total returns.
+
+`STOCK_BOND_CORR_60D(t) = Corr(R_SPX, R_UST)`
+
+Use only observations available through time t.
+
+**Factor 6 — Inflation-conditioned diversification regime**
+
+Investigate whether the level or momentum of inflation compensation predicts subsequent stock–bond correlation.
+
+Potential predictors:
+
+- 10-year breakeven level.
+- 60-day breakeven change.
+- Real-yield momentum.
+- CPI inflation trend, using publication-aware observations.
+
+Evaluate whether these variables provide incremental information relative to the historical stock–bond correlation itself.
+
+Do not assume that contemporaneous correlation predicts future correlation.
+
+---
+
+## PART 4 — Real-yield valuation
+
+The chapter examines the relationship between starting real Treasury yields and subsequent long-horizon real Treasury returns.
+
+It also discusses the comparison between 10-year real yields and potential US GDP growth.
+
+### Required data
+
+Retrieve:
+
+- US 10-year TIPS real yield.
+- Historical US potential real GDP growth estimates.
+- US 10-year nominal Treasury yield.
+- US Treasury total returns.
+- CPI inflation for measuring realized real returns.
+
+For potential GDP growth, prioritize historical estimates that were available to investors at the relevant time.
+
+Do not use revised modern estimates as though they were known historically.
+
+### Candidate factor construction
+
+**Factor 7 — Real-yield valuation gap**
+
+Calculate:
+
+`REAL_YIELD_GAP(t) = US_10Y_REAL_YIELD(t) - POTENTIAL_REAL_GDP_GROWTH(t)`
+
+Investigate whether this valuation gap predicts subsequent medium- and long-horizon Treasury real returns.
+
+Evaluate horizons of:
+
+- 6 months.
+- 12 months.
+- 24 months.
+- 36 months.
+
+Report whether the relationship is robust to alternative historical estimates of potential GDP growth.
+
+Treat this as a valuation hypothesis, not a proven equilibrium pricing relationship.
+
+---
+
+## PART 5 — Nominal yield decomposition
+
+Retrieve matched-maturity nominal Treasury yields, TIPS real yields and breakeven inflation.
+
+Construct:
+
+`NOMINAL_YIELD_10Y(t) ≈ REAL_YIELD_10Y(t) + BREAKEVEN_10Y(t)`
+
+And:
+
+`ΔNOMINAL_YIELD_10Y ≈ ΔREAL_YIELD_10Y + ΔBREAKEVEN_10Y`
+
+Use the decomposition to distinguish real-rate repricing from inflation-compensation repricing.
+
+Recognize that this is an accounting relationship involving derived market measures.
+
+Do not treat the decomposition itself as independent evidence of predictive power.
+
+---
+
+## PART 6 — Signal generation and preliminary validation
+
+For each candidate factor, evaluate whether it can support a directional Treasury signal or a stock–bond diversification regime signal.
+
+### Required methodology
+
+1. Use only information available at the signal formation date.
+2. Align economic observations to their historical release dates.
+3. Preserve historical revisions where possible.
+4. Define signal formation and execution timing explicitly.
+5. Use investable Treasury total or excess returns as the target.
+6. Evaluate multiple forward return horizons where economically appropriate.
+7. Avoid look-ahead bias.
+8. Avoid optimizing thresholds solely on the full historical sample.
+
+### Statistical analysis
+
+Where data and analytical tools permit, evaluate:
+
+- Pearson and Spearman predictive correlations.
+- Forward excess-return regressions.
+- HAC/Newey–West standard errors where appropriate.
+- Overlapping-return bias.
+- Rolling and expanding-window stability.
+- Inflationary versus disinflationary regimes.
+- Out-of-sample performance.
+- Multiple-testing risk.
+
+If testing an executable strategy, distinguish:
+
+- Gross returns.
+- Returns after funding.
+- Returns after transaction costs.
+- Annualized volatility.
+- Sharpe ratio.
+- Maximum drawdown.
+
+Do not report strategy Sharpe ratios or statistically significant alpha without a clearly defined executable position and return methodology.
+
+If AskB cannot perform the calculations, provide the exact Bloomberg data exports and Python-ready formulas required to perform them externally.
+
+---
+
+## PART 7 — Final deliverables
+
+### Deliverable A — Bloomberg data dictionary
+
+Provide a structured table with:
+
+| Field | Description |
+|---|---|
+| Dataset | Economic or financial variable |
+| Bloomberg ticker | Exact Bloomberg identifier |
+| Bloomberg field | Exact field mnemonic |
+| Description | What the series measures |
+| Unit | Original measurement unit |
+| Frequency | Observation frequency |
+| Start date | Earliest verified observation |
+| End date | Latest available observation |
+| Historical revisions | Available / unavailable / uncertain |
+| Access method | Excel / BQL / BQuant |
+| Research purpose | Return target / explanatory variable / benchmark |
+
+Do not invent Bloomberg identifiers or historical coverage.
+
+If a ticker or field cannot be verified, mark it as unresolved.
+
+### Deliverable B — Historical data
+
+Provide downloadable historical observations in CSV or Excel format, if supported.
+
+Prefer:
+
+- Daily observations for market prices and yields.
+- Original release frequency for macroeconomic data.
+- Historical vintage information where available.
+- The longest reliable history for each dataset.
+
+Do not interpolate missing historical observations.
+
+### Deliverable C — Factor dataset
+
+Provide the historical time series of the seven candidate factors:
+
+1. Inflation compensation momentum.
+2. Inflation expectations curve.
+3. Real-yield momentum.
+4. Inflation surprise.
+5. Stock–bond rolling correlation.
+6. Inflation-conditioned diversification regime.
+7. Real-yield valuation gap.
+
+For each factor, report its first valid historical date and the transformation methodology.
+
+### Deliverable D — Signal research results
+
+Provide a table containing:
+
+- Factor name.
+- Hypothesized economic mechanism.
+- Target asset or return.
+- Signal direction, if justified.
+- Forecast horizon.
+- Available historical sample.
+- Predictive coefficient or correlation.
+- Statistical significance, if calculated.
+- Out-of-sample result, if calculated.
+- Key limitations.
+
+Clearly distinguish verified empirical results from hypotheses.
+
+### Deliverable E — Reproducibility
+
+Provide Bloomberg Excel formulas, BQL queries or BQuant/Python examples for downloading the datasets.
+
+Use actual verified Bloomberg identifiers and supported syntax.
+
+If any required dataset is unavailable, identify the closest alternative and explain the limitation.
+
+---
+
+## Final instruction
+
+Focus strictly on Chapter 5.1 and the data required to investigate its empirical claims.
+
+Prioritize **historical data integrity, point-in-time correctness, investable Treasury returns and reproducibility**.
+
+Do not expand into unrelated macro strategies.
+
+Do not claim statistical significance unless it has been empirically established.
+
+Where a requested analysis cannot be completed within AskB, identify the missing inputs and provide reproducible instructions for completing it externally.
