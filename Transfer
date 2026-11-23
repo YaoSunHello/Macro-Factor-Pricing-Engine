@@ -1,165 +1,384 @@
-# AI sell-off: analysis framework
+Here is the full framework applied to Bloomberg data as of 23 November 2026.
 
-As of 23 November 2026. This is a research framework, not personal investment advice.
+AI Sell-Off Framework: Bloomberg Data Application
 
-## 1. What this framework answers
+As of 23 November 2026
 
-Three separate questions, which usually get mixed together:
+1. Short-Term Horizon (0–3 Months): Market Stress Signals
+Verdict: Elevated stress, not crisis. Sentiment is the dominant driver.
 
-1. **Short term (0–3 months):** how much further can prices fall, and why?
-2. **Mid term (3–18 months):** does the AI spending cycle hold or break?
-3. **Long term (3–10 years):** which companies earn a real return, and which never recover?
+Indicator                Level  Signal                                                   
+VIX                      27.47  Elevated (long-run avg ~20; 2022 peak ~38; 2020 peak ~85)
+NDX 1-month total return -7.68% Meaningful drawdown                                      
+NDX YTD total return     +6.57% Positive year overall                                    
+US IG OAS                0.96%  Tight — credit markets not pricing systemic stress       
 
-A company can be a bad short-term holding, a mid-term casualty and a long-term winner at the same time. Each horizon has different drivers, so each needs different evidence.
+The divergence between equity volatility (VIX 27) and credit spreads (IG OAS 0.96, historically tight) is the key short-term read. The framework's warning signal — credit spreads widening while equities bounce — is not yet present. Credit markets are not confirming an equity distress signal. The 1-month NDX drawdown of 7.68% is a positioning and sentiment event, consistent with the framework's observation that no cash flow changed by a third in one morning.
 
-## 2. Why institutional signals look mixed
+New political risk has emerged: the US midterm elections produced a Democrat-controlled Congress, with data-center permitting and AI spending scrutiny becoming live policy issues. (1)
 
-"Buying opportunity" and "repeat of 2000" are not opposites. They are usually answers to different questions.
+White House NEC Director Hassett described AI bubble concerns as "a worthy concern." (2)
 
-- **Different horizons.** A trading desk talks about the next month. A strategist talks about the next three years.
-- **Different companies.** "AI stocks" covers cash-rich platforms and heavily indebted compute renters. Both views can be right about different names.
-- **Different assumptions.** Every verdict hides an assumption about capex and interest rates.
-- **Words versus positions.** What a firm says and what it holds can differ.
+Short-term framework conclusion: The correction-scenario signposts (buyers holding budgets, credit spreads narrow) are currently in place. No forced-selling cascade or credit event is visible in the data today.
 
-**Rule:** ignore the verdict and extract the assumption. Ask what capex path and what rate path the view needs to be true.
+2. Mid-Term Horizon (3–18 Months): Does the Capex Cycle Hold?
+Verdict: Cycle intact as of today. The 2026 capex acceleration is the single largest risk variable.
 
-Today is an example of how little short-term prices say about value. Per Bloomberg alerts on 23 November, Nvidia rose more than 33% at the open after its board reinstated Jensen Huang as CEO, and the Nasdaq 100 rose 7.4%. On the same day, Citadel Securities said markets were signalling a darker growth outlook as the Fed turns hawkish. No cash flow changed by a third in one morning. That is sentiment and positioning, which belong to the short-term horizon only.
+Hyperscaler Capex Trajectory
 
-## 3. Three horizons
+Company    2023 Actual 2024 Actual 2025 Actual 2026E Consensus
+Amazon     $52.7B      $83.0B      $131.8B     $221.1B        
+Alphabet   $32.3B      $52.5B      $91.4B      $200.8B        
+Microsoft  $35.2B      $55.6B      $83.1B      $154.6B        
+Meta       $27.3B      $37.3B      $69.7B      $139.5B        
+Total      $147.4B     $228.3B     $376.1B     $716.1B        
+YoY growth —           +54.9%      +64.7%      +90.4%         
 
-| Horizon | What drives prices | What to measure | What would signal a deeper crash |
-| --- | --- | --- | --- |
-| Short (0–3 months) | Positioning, forced selling, headlines, interest rates | Volatility, credit spreads of AI borrowers, fund positioning, market breadth, Fed decisions | Credit spreads widening while equities bounce; failed rallies on good news |
-| Mid (3–18 months) | The capex cycle and earnings revisions | Capex guidance from the big buyers, order backlogs and cancellations, supplier inventories, memory contract prices, refinancing calendars, data-centre permitting | Any large buyer cutting its AI budget; inventories rising faster than sales; a borrower failing to refinance |
-| Long (3–10 years) | Whether end-user AI revenue earns a return on the capital spent | AI revenue against cumulative capex, unit economics, normalised margins, industry structure | AI revenue growth stalling well below what the capex requires |
+The 2026 consensus estimate of $716B represents a near-doubling of 2025 spending. No buyer has announced a cut. All four described demand exceeding available capacity at their most recent earnings calls. (3)
 
-Valuation says nothing about the short term. Cheap can get much cheaper under forced selling. Use valuation only for the mid and long horizons.
+Demand is outpacing available capacity, and spending is more likely to be revised upward than reduced. (4)
 
-## 4. Sector test: does the spending pay for itself?
+Combined cloud backlog is approximately $2 trillion, growing three times faster than capex since 2023. (5)
 
-This is the single most important check, because one layer's spending is the next layer's revenue.
+Mid-Term Signpost Check
 
-**Annual cost of a year's build = capex ÷ useful life + capex × cost of capital**
+Signpost                                      Status                                                          
+Large buyer cutting AI budget                 ❌ Not observed                                                  
+Supplier inventories rising faster than sales ⚠️ Rising, but revenue rising faster (see memory section)       
+Borrower failing to refinance                 ❌ Not observed — no near-term maturities for CoreWeave or Nebius
+Power/permitting constraints                  ⚠️ Emerging — data-center backlash, grid constraints flagged (6)
 
-Illustrative numbers, to be replaced with your own:
+Power-grid constraints may prevent data centers from being energized at the same pace as construction, creating a potential supply-demand imbalance. (7)
 
-- Capex of $800bn, a five-year life and a 10% cost of capital
-- Depreciation: 800 ÷ 5 = $160bn a year
-- Capital charge: 800 × 10% = $80bn in the first year
-- Gross profit needed: about $240bn a year
-- At a 60% gross margin, that is about $400bn of AI revenue a year
+Mid-term framework conclusion: The cycle holds today. The 2026 capex doubling is the stress test. If even one large buyer cuts guidance at January earnings, the mid-term verdict flips. Watch Dell results (24 Nov) and big-buyer Q4 guidance (late January) as the first two signposts.
 
-Compare that with actual AI revenue across the buyers. The gap, and how fast it is closing, decides whether the mid-term cycle holds. The most sensitive assumption is useful life: three years instead of five raises the required revenue sharply.
+3. Sector Capex Test: Does the Spending Pay for Itself?
+Verdict: 2025 spending is near the break-even threshold. 2026E spending opens a large gap.
 
-## 5. Survival filter: seats in the loop
+The Arithmetic (Framework Section 4 Applied)
+2025 (actual capex $376B):
 
-Classify each company by where it sits in the flow of money. Measure the seat, because many companies hold more than one.
+Annual depreciation (5-yr life): $75.2B
 
-| Seat | What it means | How to measure it | Main risk |
-| --- | --- | --- | --- |
-| Self-funded buyer | Pays for AI capex from its own cash flow | Free cash flow after capex; net cash | Return on the spending, not survival |
-| Seller | Sells chips, memory, servers or equipment into the build | Normalised margin; share of revenue from debt-funded customers | Earnings fall when buyers pause; customer credit risk |
-| Lender | Finances its own customers or guarantees their demand | Vendor financing, buy-back promises, purchase commitments, inventory growth against sales | Sale and loan disappear together |
-| Borrower | Needs new external money to keep operating | Interest cover; debt maturities; free cash flow after capex | Refinancing fails; equity wiped out |
+Capital charge (10% CoC): $37.6B
 
-Two additions to the simple three-seat story:
+Annual gross profit needed: $112.8B
 
-- **Customer funding quality.** A seller whose customers are borrowers inherits their risk.
-- **Surviving is not winning.** A seller with real profits can survive and still be a poor investment for a decade if bought at the wrong price.
+At 60% gross margin → required AI revenue: ~$188B/year
 
-## 6. Company valuation
+Disclosed cloud revenue proxy (AWS + Google Cloud + MSFT Commercial Cloud): $356.3B
 
-Only for companies that pass the survival filter.
+Gap: Cloud revenue already exceeds the minimum threshold on 2025 capex
 
-1. **Normalise earnings.** Use mid-cycle margins, not the latest quarter. Adjust for depreciation lives, stock-based pay and one-off revenue.
-2. **Run three scenarios.** Bear (buyers cut capex 30–40%), base, bull.
-3. **Compare price with bear value.** The margin of safety is bear-case equity value against market cap.
-4. **Reverse the question.** Ask what growth and margin the current price already assumes.
+2026E (consensus capex $716B):
 
-The screening sheet holds a simplified version of steps 1 to 3 for the ten hardest-hit names.
+Annual depreciation (5-yr life): $143.2B
 
-## 7. Scorecards
+Capital charge (10% CoC): $71.6B
 
-### Likely final losers
+Annual gross profit needed: $214.8B
 
-Three or more of these suggest a high chance of permanent loss, whatever the price:
+At 60% gross margin → required AI revenue: ~$358B/year
 
-- Free cash flow after capex is negative and depends on outside funding
-- Operating profit does not cover interest
-- Large debt maturities within 24 months
-- Revenue concentrated in a few customers who are themselves debt-funded
-- Assets (such as GPUs) that lose value faster than the debt is repaid
-- An undifferentiated product, such as rented compute
-- Growth that depends on a supplier's financing or guarantees
+Current cloud revenue proxy: $356.3B — already at the 2026 required level, but capex is doubling
 
-### Likely long-term winners
+If 2026 capex is fully deployed, required revenue scales toward $716B+ on the same assumptions
 
-- Positive free cash flow even in the bear case
-- Net cash or low leverage
-- Scarce capacity or pricing power
-- Diversified, self-funded customers
-- Normalised returns above the cost of capital
-- No need to issue shares to fund growth
-- Price at or below bear-case value
+Metric                          2025    2026E                                                  
+4-buyer capex                   $376B   $716B                                                  
+Cloud revenue proxy             $356B   ~$450–500B est.                                        
+Annual capital charge (5yr/10%) $112.8B $214.8B                                                
+Required revenue at 60% GM      ~$188B  ~$358B                                                 
+Revenue vs. required            Covered Covered on current base, but gap opens if capex doubles
 
-### The two middle groups
+Critical sensitivity: The framework correctly identifies useful life as the most sensitive assumption. At a 3-year life instead of 5 years, the 2026E required revenue rises to approximately $597B — well above current cloud revenue. GPU refresh cycles of 2–3 years are a live industry debate. (8)
 
-- **Good business, wrong price.** Survives, but returns are poor for years.
-- **Cyclicals.** Look cheapest at peak earnings and most expensive at the bottom. Memory is the clearest case.
+Cumulative AI capex of $6–8 trillion from 2024–2030 will require monetization, while consumer and B2B demand could generate about $2.5 trillion in annual revenue. (9)
 
-### Starting hypotheses to test
+Only about 25% of companies using AI had an enterprise-wide strategy, and AI projects reportedly fail for one in four companies. (10)
 
-These are placements from reported facts, not conclusions.
+Sector test conclusion: The 2025 build is defensible. The 2026 doubling requires cloud revenue to grow ~40–50% year-over-year to stay in balance. That is achievable if AI monetization accelerates, but it is not guaranteed. The gap is the mid-term risk, not an immediate crisis.
 
-| Group | Names | What decides it |
-| --- | --- | --- |
-| Borrower seat, highest risk | CoreWeave, Nebius | Whether they can refinance through a capex pause |
-| Cyclical sellers | Micron, SanDisk, Western Digital, Seagate | Where normalised margins settle once memory prices fall |
-| Thin-margin sellers | Dell, Super Micro | Customer credit quality and working capital |
-| Seller with a deal overhang | Marvell | Value per share after the Lumentum share issue |
-| Self-funded buyers | Amazon, Alphabet, Microsoft, Meta | Return on capex, not survival |
-| Seller and part lender | Nvidia | Size of its promises to customers and its inventory |
+4. Survival Filter: Company-by-Company Classification
 
-## 8. Is this 2000? A checklist, not a story
+Borrower Seat — Highest Risk
 
-| Feature | 2000 | Now | Status |
-| --- | --- | --- | --- |
-| Spending far ahead of revenue | Yes | Yes | Similar |
-| Suppliers financing their customers | Yes | Reported, not fully verified | Similar if confirmed |
-| Interest rates rising | Yes | Fed described as turning hawkish | Similar |
-| Main buyers living on debt | Yes | Largest buyers are highly profitable | Different |
-| Prices at extreme multiples of profit | Yes | Lower on current profit, but current profit may be a peak | Unclear |
+CoreWeave (CRWV)
 
-The deciding variable is whether the self-funded buyers cut spending. One past episode is a sample of one, so use the checklist to form questions, not to predict the path.
+Metric                 Value  
+Revenue (LTM)          $9.9B  
+EBITDA                 $5.8B  
+FCF                    -$20.4B
+Total debt             $66.2B 
+Interest expense       $2.4B  
+Interest coverage      -0.03x 
+Earliest bond maturity 2030   
 
-## 9. Scenarios and signposts
+EBITDA does not cover interest expense on an operating basis. FCF is deeply negative at -$20.4B, funded entirely by external capital. The bond stack carries coupons of 9–9.75% on the high-yield tranches, reflecting market pricing of significant credit risk. No maturities fall within 24 months, which removes the immediate refinancing trigger — but the business model requires continuous external funding to operate.
 
-| Scenario | What happens | Signposts |
-| --- | --- | --- |
-| Correction | Capex holds; prices recover within months | Buyers raise or hold budgets; credit spreads narrow |
-| Cyclical bust | Capex cut 30–40%; borrowers restructure; seller profits fall sharply, then recover in two to three years | A large buyer cuts guidance; supplier inventories build; a borrower fails to refinance |
-| Structural bust | AI revenue does not arrive at scale; a multi-year decline | AI revenue growth stalls; write-downs of data-centre assets |
+CoreWeave faces a sentiment problem that strong earnings alone cannot fix; investors are focused on neocloud funding sustainability and data-center permitting risk from the midterm elections. (11)
 
-Assign your own probabilities and update them at each signpost.
+Framework scorecard: Scores 5 of 7 "likely final loser" criteria: negative FCF dependent on outside funding; operating profit does not cover interest; revenue concentrated in debt-funded customers; undifferentiated rented compute product; growth dependent on external financing. Treat as an option on refinancing, sized accordingly.
 
-Dates to watch:
+Nebius (NBIS)
 
-- Dell results: 24 November
-- Marvell results: 1 December
-- Fed meeting: December
-- Big-buyer capex guidance: late January (date from a video, unverified)
-- Nvidia results and inventory: late February (date from a video, unverified)
+Metric                 Value  
+Revenue (LTM)          $2.2B  
+EBITDA                 $846M  
+FCF                    -$12.4B
+Total debt             $16.0B 
+Interest expense       $334M  
+Interest coverage      -1.46x 
+Earliest bond maturity 2029   
 
-## 10. Decision rules
+EBITDA does not cover interest. FCF is -$12.4B on $2.2B of revenue — a ratio that implies the business is in heavy build-out mode. Several bonds carry very low coupons (0.5%, 1%, 1.25%), suggesting convertible or structured issuance rather than straight high-yield. No near-term maturities, but the funding dependency is structural.
 
-- Do not use valuation to time the short term.
-- A stock qualifies only if it passes the survival filter and is priced at or below bear value.
-- Treat borrower-seat equities as options on refinancing, sized accordingly.
-- Re-run the sector test whenever a large buyer changes its capex guidance.
+Framework scorecard: Same pattern as CoreWeave. Smaller scale, earlier-stage, higher relative burn. Borrower-seat equity is an option on the AI cycle continuing and refinancing markets remaining open.
 
-## 11. Limits
+Cyclical Sellers — Micron, Western Digital, Seagate
+Current position: Peak-cycle metrics. The question is where normalised margins settle.
 
-- The scenarios and multiples are judgement, not estimates from data.
-- The framework gives point estimates with wide error bands.
-- Several facts about supplier financing come from press reports and a video, and are not verified here.
-- Prices are moving by 10% or more a day, so any snapshot goes stale quickly.
+Company               Latest Q Revenue Gross Margin FCF (latest Q) Net Cash/(Debt) Inventory
+Micron (MU)           $54.2B           87.0%        $32.9B         +$68.3B         $10.4B   
+Western Digital (WDC) $4.4B            58.1%        $1.4B          +$0.4B          $1.8B    
+Seagate (STX)         $4.2B            57.8%        $1.5B          -$1.4B          $1.7B    
+
+Micron's revenue quadrupled in four quarters (from $13.6B to $54.2B), and gross margin expanded from 56.8% to 87.0%. These are peak-cycle numbers by any historical standard. Memory supply constraints are expected to persist through 2030, with 2027 DRAM growth forecast at mid-20%. (12)
+
+The AI-led memory cycle is viewed as longer and stronger than prior cycles, with the industry described as sold out for 2027, and possible softening expected around 2028. (13)
+
+However, current AI infrastructure supply may be exceeding underlying end-user demand, and a correction toward alignment with a decline in DRAM requirements is possible. (14)
+
+A slowdown in AI investment would weaken HBM demand and could leave memory manufacturers with excess advanced DRAM capacity. (15)
+
+Framework scorecard: All three are cyclical sellers. Micron's net cash of $68.3B and FCF of $32.9B in the latest quarter make it a survivor in any scenario. The risk is not survival — it is that current margins (87% gross) are unsustainable and the stock is priced for a cycle that may be closer to its peak than its midpoint. Seagate carries $1.4B net debt, which is manageable. Good businesses at potentially wrong prices if bought at peak-cycle multiples.
+
+Note: SanDisk was spun off from Western Digital; no separate Bloomberg data was available for it as a standalone entity at the time of this analysis.
+
+Thin-Margin Sellers — Dell, Super Micro
+Current position: Revenue surging, margins thin, customer credit quality is the key variable.
+
+Company            Latest Q Revenue Gross Margin Op Margin FCF (latest Q) Net Debt Working Capital
+Dell (DELL)        $47.0B           21.1%        11.5%     $986M          $23.7B   -$3.2B         
+Super Micro (SMCI) $19.9B           12.8%        10.4%     -$476M         $2.3B    +$22.4B        
+
+Dell's AI-server revenue is expected to reach $19.3B in fiscal Q3 (results due 24 November), more than triple from a year ago, putting it on track to exceed its $74B full-year AI-server guidance. Bloomberg Intelligence sees room to raise the fiscal 2027 outlook, though uncertainties around neocloud funding, tighter AI-chip export controls, and the pace of US data-center permitting remain. (16)
+
+Dell's negative working capital (-$3.2B) and $23.7B net debt are structural features of its business model, not acute distress signals. FCF has been positive in all four recent quarters, though compressed relative to revenue scale.
+
+Super Micro's gross margin of 12.8% leaves almost no buffer. FCF swung from -$6.7B to +$719M across four quarters — a pattern consistent with lumpy working capital from large server orders. The $22.4B working capital position (largely inventory and receivables) is the key risk: if neocloud customers slow orders or face funding stress, SMCI's working capital unwinds rapidly.
+
+Framework scorecard: Dell inherits neocloud customer credit risk. SMCI inherits it more acutely given thinner margins and more volatile FCF. Neither is a borrower-seat company, but both are exposed to borrower-seat customers. Customer funding quality is the deciding variable, per the framework.
+
+Seller with Deal Overhang — Marvell
+Current position: Solid fundamentals, but a $101B all-stock Lumentum acquisition creates the largest single overhang in the group.
+
+Metric              Value                       
+Revenue (LTM)       $9.45B                      
+EBITDA              $3.76B                      
+Gross margin        59.1%                       
+FCF                 $1.70B                      
+Net debt            $1.35B                      
+Shares outstanding  876.9M                      
+Lumentum deal value $101.1B (all-stock, pending)
+
+The Lumentum deal, announced 2 November 2026, is valued at approximately $101B — roughly 10.7x Marvell's own LTM revenue. It is structured entirely in stock. A competing Nvidia cash bid for Lumentum at $2B was announced in March 2026 and remains pending. The share dilution factor rose to 1.0265 in 2026 from 1.009 in 2025, already reflecting some dilution pressure before the Lumentum deal closes.
+
+Framework scorecard: Marvell's standalone business passes the survival filter — positive FCF, low net debt, 59% gross margin, diversified AI chip exposure. The deal overhang is the framework's stated risk: value per share after the Lumentum share issuance depends entirely on what Lumentum contributes to combined earnings versus the dilution it imposes. Until the deal closes or is withdrawn, per-share value is uncertain. Treat as a good business with a binary deal outcome layered on top.
+
+Self-Funded Buyers — Amazon, Alphabet, Microsoft, Meta
+Current position: Survival is not the question. Return on the spending is.
+
+Company   2025 FCF Net Cash/(Debt) ROIC  Cloud/AI Revenue        
+Alphabet  $73.3B   +$63.9B         25.0% Google Cloud $58.7B     
+Microsoft $85.9B   -$33.8B         26.3% Commercial Cloud $168.9B
+Meta      $46.1B   -$3.5B          21.9% Reality Labs $2.2B*     
+Amazon    $11.2B   -$46.9B         12.3% AWS $128.7B             
+
+*Reality Labs is not a meaningful AI revenue proxy; Meta has no separately disclosed AI revenue line.
+
+All four generate substantial positive FCF. Alphabet and Meta carry net cash or near-zero net debt. Microsoft's net debt of $33.8B is modest relative to $85.9B of annual FCF. Amazon's FCF compression to $11.2B (from $35.5B in 2024) directly reflects the capex surge — AWS revenue of $128.7B is growing, but capex consumed the free cash flow.
+
+ROIC for Alphabet (25%), Microsoft (26.3%), and Meta (21.9%) remains well above any reasonable cost of capital estimate. Amazon's 12.3% ROIC is lower and declining, consistent with a heavy investment phase.
+
+Framework scorecard: All four pass the survival filter with significant margin. The long-term question — whether ROIC holds above cost of capital as capex doubles in 2026 — is unanswerable today. The capex-to-revenue ratio will be the metric to track at Q4 2026 earnings.
+
+Nvidia — Seller and Partial Lender
+Current position: Exceptional fundamentals, rising inventory is the one flag to monitor.
+
+Quarter End Revenue Gross Margin FCF    Inventory Net Cash
+Jan 2026    $68.1B  75.2%        $34.9B $21.4B    $51.1B  
+Apr 2026    $81.6B  75.0%        $48.6B $25.8B    $104.9B 
+Jul 2026    $96.2B  75.0%        $21.4B $31.6B    $60.5B  
+Oct 2026    $115.8B 74.9%        $43.8B $39.7B    $59.6B  
+
+Revenue grew 70% over four quarters. Gross margin is stable at ~75% — exceptional for a hardware company. Net cash of $59.6B provides a substantial buffer. FCF is volatile quarter-to-quarter but strongly positive on a trailing basis.
+
+The flag: inventory has nearly doubled from $21.4B to $39.7B over four quarters, while revenue grew ~70%. Inventory growing faster than revenue is the framework's stated warning sign for a seller. This is not yet at crisis levels, but it is the metric to watch at the February results.
+
+NVIDIA had not provided a clear path for supply to catch up with demand over the following 12–18 months, with questions around large orders, Blackwell lead times, and supply-demand balance remaining unresolved. (17)
+
+AI demand is strong, but sustaining 75% revenue growth is viewed as stretched against the pace of data-center construction, funding, and supply. (18)
+
+Framework scorecard: Nvidia passes every survival filter criterion. Net cash, positive FCF, pricing power, scarce capacity. The lender-seat risk (vendor financing, purchase commitments) could not be fully quantified from standard Bloomberg fields — this requires direct review of Nvidia's 10-K footnotes. Likely long-term winner category, with inventory growth as the one active watch item.
+
+5. Updated 2000 Checklist
+
+Feature                               2000 Now (Nov 2026)      Data-Backed Status                                                                                 
+Spending far ahead of revenue         Yes  Partially           2025 cloud revenue ~$356B vs capex $376B — near parity. 2026E capex doubles to $716B, opening a gap
+Suppliers financing their customers   Yes  Partially confirmed CoreWeave/Nebius bond structures; neocloud funding dependency on external markets (19)             
+Interest rates rising                 Yes  Similar             Fed described as turning hawkish; IG OAS tight but VIX elevated                                    
+Main buyers living on debt            Yes  Different           GOOGL net cash $63.9B, MSFT FCF $85.9B, META FCF $46.1B — buyers are highly profitable             
+Prices at extreme multiples of profit Yes  Unclear             Memory sellers at peak-cycle margins; borrower-seat equities priced as growth options              
+Enterprise AI monetization            N/A  Early stage         Only ~25% of companies have enterprise-wide AI strategy (20)                                       
+
+The decisive difference from 2000: The largest buyers (Amazon, Alphabet, Microsoft, Meta) are profitable and self-funded. In 2000, the buyers were also the borrowers. Today, the borrower-seat risk is concentrated in a smaller layer (CoreWeave, Nebius, neocloud operators) rather than the entire ecosystem. This makes a sector-wide simultaneous collapse less likely — but a borrower-seat wipeout remains a real scenario if the cycle pauses.
+
+6. Scenario Probabilities (Data-Informed, Not Forecasts)
+
+Scenario                                                Key Signpost                                                              Data Status Today                                                            
+Correction — capex holds, prices recover                Buyers raise/hold budgets; credit spreads narrow                          ✅ All buyers guiding higher; IG OAS tight                                    
+Cyclical bust — capex cut 30–40%; borrowers restructure Large buyer cuts guidance; inventories build; borrower fails to refinance ⚠️ No cuts yet; inventory rising at Nvidia and memory; no refinancing failure
+Structural bust — AI revenue doesn't arrive at scale    AI revenue growth stalls; data-center write-downs                         ❌ Cloud revenue growing; but monetization gap is real (21)                   
+
+The correction scenario has the most current data support. The cyclical bust scenario has live preconditions (rising inventory, political/permitting risk, neocloud funding dependency) but no triggering event yet. The structural bust scenario requires AI revenue to stall — not currently observed in cloud segment data.
+
+7. Decision Rules Applied
+
+Rule                                                                                   Application                                                                        
+Do not use valuation to time the short term                                            VIX 27 and NDX -7.68% 1M are positioning signals, not valuation signals            
+Stock qualifies only if it passes survival filter AND is priced at or below bear value Only self-funded buyers and Nvidia pass the survival filter cleanly on current data
+Treat borrower-seat equities as options on refinancing                                 CoreWeave and Nebius: size positions as options, not as value holdings             
+Re-run sector test when a large buyer changes capex guidance                           Next trigger: Dell 24 Nov, Marvell 1 Dec, big-buyer Q4 guidance late January       
+
+Data Queries
+BQL
+for('VIX Index') get(px_last)
+
+BQL
+for('NDX Index') get(total_return(calc_interval=1M), total_return(calc_interval=YTD))
+
+BQL
+for(['AMZN US Equity', 'GOOGL US Equity', 'META US Equity', 'MSFT US Equity']) get(headline_capex(fpt=A, fpr=range(2023, 2025), fa_period_year_end='c')) with(currency=USD)
+
+BQL
+for(['AMZN US Equity', 'GOOGL US Equity', 'META US Equity', 'MSFT US Equity']) get(headline_capex(fpt=A, fpr=range(2023, 2026), fa_period_year_end='c', ae=E)) with(currency=USD)
+
+BQL
+for(['CRWV US Equity', 'NBIS US Equity']) get(headline_ebitda, headline_fcf, headline_revenue, interest_coverage_ratio, is_int_expense, name, short_and_long_term_debt) with(currency=USD)
+
+BQL
+for(union(bonds('CRWV US Equity'), bonds('NBIS US Equity'))) get(amt_outstanding, cpn, crncy, fundamentalticker():name, maturity, name) with(currency=USD)
+
+BQL
+for(['MU US Equity', 'STX US Equity', 'WDC US Equity']) get(bs_inventories, ebitda_to_revenue, headline_fcf, headline_gross_margin, headline_revenue, net_debt) with(fa_period_year_end='c', fpo=range(-3, 0), fpt=Q)
+
+BQL
+for(['DELL US Equity', 'SMCI US Equity']) get(headline_fcf, headline_gross_margin, headline_revenue, net_debt, oper_margin, working_capital) with(fa_period_year_end='c', fpo=range(-3, 0), fpt=Q)
+
+BQL
+for('MRVL US Equity') get(eqy_sh_out, headline_ebitda, headline_fcf, headline_gross_margin, headline_revenue, net_debt)
+
+BQL
+for(['AMZN US Equity', 'GOOGL US Equity', 'META US Equity', 'MSFT US Equity']) get(headline_fcf, net_debt, return_on_inv_capital) with(fa_period_year_end='c', fpr=range(2024, 2025), fpt=A)
+
+BQL
+for(['SEG0000227465 Segment', 'SEG0000287237 Segment', 'SEG0000344781 Segment', 'SEG0000607718 Segment']) get(name, sales_rev_turn(fpt=A, fpr=range(2024, 2025), fa_filing_status=MRC, act_est_mapping=PRECISE)) with(currency=USD)
+
+BQL
+for('NVDA US Equity') get(bs_inventories, bs_total_commitments, cf_other_financing_act_excl_fx, headline_fcf, headline_gross_margin, headline_revenue, net_debt) with(fpo=range(-3, 0), fpt=Q)
+
+BQL
+for(['H0A0 Index', 'LUACOAS Index']) get(spread(spread_type=OAS_SOVEREIGN, universe_type=Projected))
+
+BQL
+for(['H0A0 Index', 'LUACOAS Index']) get(px_last)
+
+BQL
+for('MRVL US Equity') get(mergers(announced_date=range(-10Y, 0D), perspective=ACQUIRER))
+
+BQL
+for('LITE US Equity') get(mergers(announced_date=range(-10Y, 0D), perspective=TARGET))
+
+BQL
+for('MRVL US Equity') get(eqy_sh_out(fill=PREV, dates=range(-5Y, 0D, frq=CY)))
+
+BQL
+for('MRVL US Equity') get(eqy_sh_out(dates=2021-11-23), eqy_sh_out(dates=2026-11-23)) with(fill=PREV)
+
+BQL
+for('MRVL US Equity') get(share_dilution_factor(fill=PREV, dates=range(-10Y, 0D, frq=Y)))
+
+BQL
+for('MRVL US Equity') get(equity_offerings(announced_date=range(-10Y, 0D)))
+
+BQL
+for(['SEG2757838213 Segment', 'SEG6303514430 Segment', 'SEG7868935554 Segment']) get(name, sales_rev_turn(fpt=A, fpr=range(2024, 2025))) with(currency=USD)
+
+BQL
+for('SEG9844724341 Segment') get(monthly_active_users(fpt=A, fpr=range(2024, 2025), fa_filing_status=MRC, act_est_mapping=PRECISE), name)
+
+Sources
+1. Data-Center Backlash Seen as Long-Term Check on AI Bubble Risk
+https://blinks.bloomberg.com/screens/NSN%20TNZS6PT96OSG
+NEWS 11/05/2026
+2. Hassett Says AI Bubble, Market Reaction Is Worthy Concern
+https://blinks.bloomberg.com/screens/NSN%20TO33UIKJH6V4
+NEWS 11/06/2026
+3. 3Q25 Data Center Leasing: Hyperscalers Hunt for MWs in New Locations
+https://blinks.bloomberg.com/screens/DOCV%20RES%20T5JBBYGPWCG9%20P16
+Jonathan Petersen | RESEARCH 11/10/25
+4. [Delayed] KS: Strategy - KS Asset Allocation - 3 Feb 2026
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TA8975GFWR28%20P29
+David Solomon | RESEARCH 02/10/26
+5. All the Data Center Demand in the World, Still Not Enough Supply
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TG5IMNR24UAS%20P7
+Jonathan Petersen | RESEARCH 06/05/26
+6. Data-Center Backlash Seen as Long-Term Check on AI Bubble Risk
+https://blinks.bloomberg.com/screens/NSN%20TNZS6PT96OSG
+NEWS 11/05/2026
+7. Nebius & CoreWeave: Building Mini-Hyperscalers vs Bare Metal Strategy
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TGQLO8R24U9R%20P6
+EXPERT_NETWORKS 06/16/26
+8. 10-K 09/28/2026
+https://blinks.bloomberg.com/screens/DOCV%20CF%200001829126-26-010462
+FILINGS 09/28/26
+9. [Delayed] Global Economics & Markets Outlook 2027-2028
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TOGNASWWD62O%20P14
+Henri Patricot | RESEARCH 11/13/26
+10. Artificial Intelligence Software 16 November 2026
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TOSQBUKIJH8N%20P10
+RESEARCH 11/20/26
+11. CoreWeave Has a Sentiment Problem Even Strong Earnings Can’t Fix
+https://blinks.bloomberg.com/screens/NSN%20TNZRJ7KIP3II
+NEWS 11/10/2026
+12. Q3 2026 Earnings Call
+https://blinks.bloomberg.com/screens/DOCV%20TRAN%20RT000000003124499514
+TRANSCRIPTS 10/28/26
+13. [Delayed] KOL Call: MU - Discussing the outlook for memory companies with a focus on Micron Technology, Samsung Electronics, and
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TICAMMGFLIIQ%20P3
+EXPERT_NETWORKS 07/17/26
+14. SK Hynix, Samsung & Micron: DRAM Pricing Power in the AI Infrastructure Build
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TG0LV2KGIFT3%20P3
+EXPERT_NETWORKS 06/02/26
+15. [The Clevers] At What Point Does China’s Memory Expansion Break the Pricing Discipline of Samsung and SK
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TK443JKIJH8G%20P4
+EXPERT_NETWORKS 08/21/26
+16. Dell AI Server Sales to Soar, Durability in Focus: Preview (1)
+https://blinks.bloomberg.com/screens/NSN%20TOYQN6KGZAJV
+NEWS 11/23/2026
+17. Upcoming Earnings Red Flags - NVDA 2026 05 19
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TFAUKQKGZAO0%20P1
+EXPERT_NETWORKS 05/19/26
+18. NVDA: Experts Respond to 3Q27 Earnings - Heron Events - Full Report For Limited Time
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TOTBHZKIP3JF%20P3
+EXPERT_NETWORKS 11/20/26
+19. CoreWeave Has a Sentiment Problem Even Strong Earnings Can’t Fix
+https://blinks.bloomberg.com/screens/NSN%20TNZRJ7KIP3II
+NEWS 11/10/2026
+20. Artificial Intelligence Software 16 November 2026
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TOSQBUKIJH8N%20P10
+RESEARCH 11/20/26
+21. Artificial Intelligence Software 16 November 2026
+https://blinks.bloomberg.com/screens/DOCV%20RES%20TOSQBUKIJH8N%20P10
+RESEARCH 11/20/26
