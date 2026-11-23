@@ -1,325 +1,165 @@
-US Treasury Macro Factors — Chapter 5.1 Research Framework
-Part 1 — Historical Treasury Performance
-Index Selection and Return Convention
-The primary Bloomberg instrument for broad US Treasury total returns is LUATTRUU Index (Bloomberg US Treasury Total Return Unhedged USD). This is a market-value-weighted index of US Treasury securities and reinvests coupon income. It is a total-return index, not a price-return index.
-Important caveat on historical coverage: The chapter reports performance beginning in 1973. The Bloomberg US Aggregate family (including LUATTRUU) was formally launched in 1986, with back-history extended to January 1973 using reconstructed data. The 1973–1986 segment is a backfill, not live index history. The chapter's drawdown figures (1977–1981: −25.5%; 2020–2023: −23.1%) are consistent with this reconstructed history. Users should treat the pre-1986 segment as a modeled approximation, not a live investable index.
-Treasury Return IdentifiersRoleBloomberg TickerDescriptionReturn TypeFieldPrimary total-return indexLUATTRUU IndexBloomberg US Treasury Total ReturnTotal return (coupons reinvested)TOT_RETURN_INDEX_GROSS_DVDSAlternativeBUSY IndexBBG US TreasuryTotal returnpx_lastAlternativeI01300US IndexBloomberg U.S. Treasury TotalTotal returnpx_lastCash benchmark (TR)LD12TRUU IndexBloomberg US Treasury Bills 1–3M Total ReturnTotal returnpx_lastCash benchmark (broader)LD20TRUU IndexBloomberg US Treasury Bills Total ReturnTotal returnpx_lastCash yield proxy onlyTBUS03M IndexUS Treasury 3-Month T-Bill YieldYield only — not a reinvested return indexpx_lastExpand Table to Artifact PaneExcess return construction: True excess return over cash requires subtracting the compounded return of a T-bill total-return index, not a yield. Use LD12TRUU Index as the funding benchmark. In BQL, the excess_return(calc_interval=..., benchmark_ticker='LD12TRUU Index') function computes this directly.
-Drawdown Calculation Convention
-A drawdown is calculated from the cumulative total-return index level as:
-Drawdown(t) = Index(t) / max(Index(s), s ≤ t) − 1
+# AI sell-off: analysis framework
 
-This uses the gross total-return index level, not yield changes. Do not approximate drawdowns using duration × yield change; that approximation omits convexity and coupon reinvestment effects and is not appropriate for multi-year drawdown measurement.
-To reproduce the chapter's drawdowns, download LUATTRUU Index with field TOT_RETURN_INDEX_GROSS_DVDS from 1973-01-01 and compute rolling peak-to-trough declines. The BDH formula is:
-=BDH("LUATTRUU Index","TOT_RETURN_INDEX_GROSS_DVDS","1973-01-01","","Per=M")
+As of 23 November 2026. This is a research framework, not personal investment advice.
 
-Part 2 — Inflation and Treasury Duration Risk
-Realized Inflation SeriesDatasetBloomberg TickerBQL FieldDescriptionUnitFrequencyStart DateRevisionsAccessUS Headline CPI (level)CPI INDX Indexcpi(type=HEADLINE, transform=LVL)BLS CPI-U, seasonally adjustedIndex (1982–84=100)Monthly1947M1Available via revision_dateBQL / BDHUS Core CPI (level)CPUPAXFE Indexcpi(type=CORE, transform=LVL)BLS CPI ex food & energy, SAIndexMonthly1957M1Available via revision_dateBQL / BDHUS Headline CPI (YoY rate)CPI YOY Indexcpi(type=HEADLINE, transform=PCT, period_over_period=YOY)Headline CPI YoY %%Monthly~1948AvailableBQL / BDHUS Core CPI (YoY rate)CPI XYOY Indexcpi(type=CORE, transform=PCT, period_over_period=YOY)Core CPI YoY %%Monthly~1958AvailableBQL / BDHUS Headline PCE (level)PCE DEF Indexpce_deflator(type=HEADLINE, transform=LVL)BEA PCE Deflator, SAIndexMonthly1959M1AvailableBQL / BDHUS Core PCE (level)PCE CORE Indexpce_deflator(type=CORE, transform=LVL)BEA Core PCE Deflator, SAIndexMonthly1959M1AvailableBQL / BDHUS Headline PCE (MoM rate)PCE DEFM Indexpce_deflator(type=HEADLINE, transform=PCT)Headline PCE MoM %%Monthly~1960AvailableBQL / BDHUS Core PCE (MoM rate)PCE CMOM Indexpce_deflator(type=CORE, transform=PCT)Core PCE MoM %%Monthly~1960AvailableBQL / BDHExpand Table to Artifact PaneData Queryfor('US Country') get(first(dropna(cpi(type=CORE))), first(dropna(cpi(type=HEADLINE))), first(dropna(pce_deflator(type=CORE))), first(dropna(pce_deflator(type=HEADLINE)))) with(po=range(-2000M, 0M), transform=LVL)Historical revision handling: Bloomberg's BQL economic data framework supports the revision_date parameter, which allows retrieval of the vintage of a release as it was known at a specific historical date. This is essential for point-in-time signal construction. In BQL:
-# Retrieve CPI as it was known on a specific date (vintage)
-for('US Country') get(cpi(type=HEADLINE, transform=LVL, revision_date='2005-01-15'))
+## 1. What this framework answers
 
-Market-Implied Inflation CompensationDatasetBloomberg TickerFieldDescriptionUnitStart DateLimitationUS 5Y BreakevenUSGGBE05 Indexpx_last5Y nominal minus TIPS yield%Post-1997 (TIPS market inception)No pre-TIPS historyUS 10Y BreakevenUSGGBE10 Indexpx_last10Y nominal minus TIPS yield%Post-1997No pre-TIPS historyUS 5Y5Y Forward BreakevenUSGG5Y5Y Indexpx_last5Y inflation compensation 5Y forward%Post-1997No pre-TIPS historyExpand Table to Artifact PaneCritical limitation: All TIPS-based breakeven and real-yield series are constrained by the US TIPS market, which began in January 1997. Bloomberg confirms no market-based TIPS real-yield or breakeven history exists before 1997. To verify the exact first available date for each series, use USGGT10Y Index GP MAX  or USGGBE10 Index HP MAX  on the Terminal.
-For pre-1997 inflation expectations proxies, consider:
+Three separate questions, which usually get mixed together:
 
-Michigan Survey of Consumer Inflation Expectations (available on Bloomberg as CONSSENT Index family)
-Philadelphia Fed Survey of Professional Forecasters (external; not directly on Bloomberg)
-Livingston Survey (external)
+1. **Short term (0–3 months):** how much further can prices fall, and why?
+2. **Mid term (3–18 months):** does the AI spending cycle hold or break?
+3. **Long term (3–10 years):** which companies earn a real return, and which never recover?
 
-Interest RatesDatasetBloomberg TickerFieldDescriptionUnitApprox. StartUS 2Y Treasury YieldGT2 Govtyield() or px_lastOn-the-run 2Y generic%~1976US 5Y Treasury YieldGT5 Govtyield() or px_lastOn-the-run 5Y generic%~1962US 10Y Treasury YieldGT10 Govtyield() or px_lastOn-the-run 10Y generic%~1953US 30Y Treasury YieldGT30 Govtyield() or px_lastOn-the-run 30Y generic%~1977US 10Y Yield (index)USGG10YR Indexpx_last10Y constant maturity yield%~1953US 5Y TIPS Real YieldUSGGT05Y Indexpx_last5Y TIPS generic real yield%Post-1997US 10Y TIPS Real YieldUSGGT10Y Indexpx_last10Y TIPS generic real yield%Post-1997Effective Fed Funds RateFDTR Indexpx_lastDaily effective FFR%~1954USD OIS CurveYCSW0042 Indexcurve_rate(tenor=...)USD OIS curve (multi-tenor)%Post-2000Expand Table to Artifact PaneNote on GT* vs USGG*YR: The GT* Govt generics roll to the current on-the-run issue and are the standard for yield curve analysis. The USGG*YR Index tickers are constant-maturity yield indices and are equivalent for most purposes. Use GT* Govt with yield() for BQL; use USGG*YR Index with px_last for BDH.
-Monetary Policy
-For Fed Funds futures-implied policy expectations, the standard Bloomberg approach is to query the front-month and deferred Fed Funds futures contracts (FF1 Comdty, FF2 Comdty, etc.) or use the OIS curve (YCSW0042 Index) for market-implied rate paths. The WIRP  function on the Terminal provides meeting-by-meeting implied probabilities.
-Candidate Factor Construction — Inflation Factors
-Factor 1 — Inflation Compensation Momentum (BE_MOM_60D)
-# Python / BQuant
-import bql
-bq = bql.Service()
+A company can be a bad short-term holding, a mid-term casualty and a long-term winner at the same time. Each horizon has different drivers, so each needs different evidence.
 
-be10 = bq.data.px_last(dates=bq.func.range('-1Y', '0D'), fill='prev')
-be10_lagged = bq.data.px_last(dates=bq.func.range('-1Y-60BD', '-60BD'), fill='prev')
+## 2. Why institutional signals look mixed
 
-# Factor = current minus 60-trading-day lag
-# BE_MOM_60D(t) = USGGBE10(t) - USGGBE10(t-60BD)
+"Buying opportunity" and "repeat of 2000" are not opposites. They are usually answers to different questions.
 
-In Excel BDH, download USGGBE10 Index daily with PX_LAST, then compute the 60-day difference in Python or Excel.
-Factor 2 — Inflation Expectations Curve (BE_SLOPE)
-# BE_SLOPE(t) = USGGBE10(t) - USGGBE05(t)
-# Download both series daily; compute the spread
+- **Different horizons.** A trading desk talks about the next month. A strategist talks about the next three years.
+- **Different companies.** "AI stocks" covers cash-rich platforms and heavily indebted compute renters. Both views can be right about different names.
+- **Different assumptions.** Every verdict hides an assumption about capex and interest rates.
+- **Words versus positions.** What a firm says and what it holds can differ.
 
-Factor 3 — Real-Yield Momentum (REAL_YIELD_MOM_60D)
-# REAL_YIELD_MOM_60D(t) = USGGT10Y(t) - USGGT10Y(t-60BD)
-# Download USGGT10Y Index daily with PX_LAST
+**Rule:** ignore the verdict and extract the assumption. Ask what capex path and what rate path the view needs to be true.
 
-Factor 4 — Inflation Surprise
-Bloomberg supports CPI surprise construction via:
-# BQL approach
-for('CPI YOY Index') get(
-    actual_release(dates=range('2000-01-01','0D')),
-    bn_survey_median(dates=range('2000-01-01','0D')),
-    eco_release_dt(dates=range('2000-01-01','0D'))
-)
-# Surprise = actual_release - bn_survey_median
+Today is an example of how little short-term prices say about value. Per Bloomberg alerts on 23 November, Nvidia rose more than 33% at the open after its board reinstated Jensen Huang as CEO, and the Nasdaq 100 rose 7.4%. On the same day, Citadel Securities said markets were signalling a darker growth outlook as the Fed turns hawkish. No cash flow changed by a third in one morning. That is sentiment and positioning, which belong to the short-term horizon only.
 
-Key limitation: Bloomberg's bn_survey_median consensus history for CPI is confirmed available for approximately the past 3 years via BQL. For longer history, use ECST  on the Terminal, which may provide extended release-level consensus data. For a broad macro surprise index, CESIUSD Index (Citi Economic Surprise Index — US) provides a longer continuous series.
-Point-in-time alignment requirement: The eco_release_dt field returns the actual publication date of each CPI release. Signal construction must use the release date, not the reference period end date, to avoid look-ahead bias. A January CPI print is typically released in mid-February; the signal is only valid from the release date onward.Data Queryfor('US Country') get(cpi(type=CORE).eco_source, cpi(type=CORE).period, cpi(type=CORE).period_over_period, cpi(type=CORE).reported_date, cpi(type=CORE).seasonality, cpi(type=CORE).ticker, cpi(type=CORE).transform, cpi(type=CORE).value, cpi(type=HEADLINE).eco_source, cpi(type=HEADLINE).period, cpi(type=HEADLINE).period_over_period, cpi(type=HEADLINE).reported_date, cpi(type=HEADLINE).seasonality, cpi(type=HEADLINE).ticker, cpi(type=HEADLINE).transform, cpi(type=HEADLINE).value, pce_deflator(type=CORE).eco_source, pce_deflator(type=CORE).period, pce_deflator(type=CORE).period_over_period, pce_deflator(type=CORE).reported_date, pce_deflator(type=CORE).seasonality, pce_deflator(type=CORE).ticker, pce_deflator(type=CORE).transform, pce_deflator(type=CORE).value, pce_deflator(type=HEADLINE).eco_source, pce_deflator(type=HEADLINE).period, pce_deflator(type=HEADLINE).period_over_period, pce_deflator(type=HEADLINE).reported_date, pce_deflator(type=HEADLINE).seasonality, pce_deflator(type=HEADLINE).ticker, pce_deflator(type=HEADLINE).transform, pce_deflator(type=HEADLINE).value)Part 3 — Stock–Bond Diversification Risk
-Required SeriesDatasetBloomberg TickerFieldStart DateNotesS&P 500 Total ReturnSPXT Indexpx_last1989-09-11Dividends reinvestedS&P 500 Price ReturnSPX Indexpx_last~1928Price only; no dividendsUS Treasury Total ReturnLUATTRUU IndexTOT_RETURN_INDEX_GROSS_DVDS1973 (backfill pre-1986)See Part 13M T-Bill Total ReturnSPBDUB3T Indexpx_last1989-12-29S&P US Treasury Bill 0–3MExpand Table to Artifact PaneCoverage gap: SPXT Index begins in September 1989. For the 1994 episode cited in the chapter, SPXT data is available. For pre-1989 equity history with dividends, external sources (e.g., CRSP, Shiller dataset) are required. SPX Index provides price-only history to 1928 but omits dividend reinvestment.Data Queryfor(['SPBDUB3T Index', 'SPXT Index']) get(history_start_dt, id, name)Candidate Factor Construction — Stock–Bond Factors
-Factor 5 — Stock–Bond Rolling Correlation (STOCK_BOND_CORR_60D)
-# Python / BQuant
-import pandas as pd
-import numpy as np
+## 3. Three horizons
 
-# After downloading daily returns for SPXT and LUATTRUU:
-spx_ret = spxt_prices.pct_change()
-ust_ret = luattruu_prices.pct_change()
+| Horizon | What drives prices | What to measure | What would signal a deeper crash |
+| --- | --- | --- | --- |
+| Short (0–3 months) | Positioning, forced selling, headlines, interest rates | Volatility, credit spreads of AI borrowers, fund positioning, market breadth, Fed decisions | Credit spreads widening while equities bounce; failed rallies on good news |
+| Mid (3–18 months) | The capex cycle and earnings revisions | Capex guidance from the big buyers, order backlogs and cancellations, supplier inventories, memory contract prices, refinancing calendars, data-centre permitting | Any large buyer cutting its AI budget; inventories rising faster than sales; a borrower failing to refinance |
+| Long (3–10 years) | Whether end-user AI revenue earns a return on the capital spent | AI revenue against cumulative capex, unit economics, normalised margins, industry structure | AI revenue growth stalling well below what the capex requires |
 
-# 60-trading-day rolling correlation (expanding window for early observations)
-corr_60d = spx_ret.rolling(window=60, min_periods=30).corr(ust_ret)
-# STOCK_BOND_CORR_60D(t) = corr_60d.loc[t]
+Valuation says nothing about the short term. Cheap can get much cheaper under forced selling. Use valuation only for the mid and long horizons.
 
-Factor 6 — Inflation-Conditioned Diversification Regime
-This factor investigates whether the level or momentum of inflation compensation predicts subsequent stock–bond correlation. Candidate predictors:
+## 4. Sector test: does the spending pay for itself?
 
-USGGBE10 Index level (10Y breakeven)
-BE_MOM_60D (Factor 1)
-REAL_YIELD_MOM_60D (Factor 3)
-CPI YoY trend (using eco_release_dt for publication-aware alignment)
+This is the single most important check, because one layer's spending is the next layer's revenue.
 
-The evaluation requires regressing STOCK_BOND_CORR_60D(t+h) on each predictor at time t, using only information available at t. Given that SPXT begins in 1989 and TIPS/breakeven data begins post-1997, the usable sample for this factor is approximately 1997–present (~27 years of daily data).
-Part 4 — Real-Yield Valuation
-Required SeriesDatasetBloomberg TickerFieldStart DateNotesUS 10Y TIPS Real YieldUSGGT10Y Indexpx_lastPost-1997Market-based; no pre-TIPS historyUS 10Y Nominal YieldGT10 Govtyield()~1953On-the-run genericUS Potential Real GDP GrowthBELTUSPG Indexpx_last2006-12-31Annual/quarterly updatesUS Treasury Total ReturnLUATTRUU IndexTOT_RETURN_INDEX_GROSS_DVDS1973 (backfill)For realized return calculationUS Headline CPICPI INDX Indexcpi(type=HEADLINE, transform=LVL)1947M1For deflating nominal returnsExpand Table to Artifact PaneData Queryfor('BELTUSPG Index') get(name, px_last(fill=PREV, dates=range(-20Y, 0D, frq=CQ)))Candidate Factor Construction — Real-Yield Valuation Gap
-Factor 7 — Real-Yield Valuation Gap
-# REAL_YIELD_GAP(t) = USGGT10Y(t) - BELTUSPG(t)
-# BELTUSPG is annual/quarterly; carry forward between updates
-# Align to monthly or quarterly frequency for regression
+**Annual cost of a year's build = capex ÷ useful life + capex × cost of capital**
 
-# Realized real Treasury return over horizon h:
-# REAL_UST_RETURN(t, t+h) = (LUATTRUU(t+h)/LUATTRUU(t) - 1) - (CPI(t+h)/CPI(t) - 1)
+Illustrative numbers, to be replaced with your own:
 
-Critical data limitation: BELTUSPG Index is confirmed available only from 2006-12-31, limiting the usable sample for Factor 7 to approximately 2007–present. This is a short sample for evaluating 24- and 36-month forward return horizons. For longer history, the CBO's published potential GDP growth estimates (available from the CBO website and on FRED as GDPPOT) can be used as an external supplement, but these are revised estimates, not point-in-time vintages. The chapter's analysis likely uses a longer reconstructed series; users should treat any Bloomberg-only implementation of Factor 7 as a partial replication.
-Point-in-time requirement: BELTUSPG Index does not carry confirmed vintage tracking on Bloomberg. For rigorous point-in-time construction, use CBO's published outlook documents (released approximately twice per year) and align each estimate to its publication date.
-Evaluation horizons: For each horizon h ∈ {6M, 12M, 24M, 36M}, the regression is:
-REAL_UST_RETURN(t, t+h) = α + β × REAL_YIELD_GAP(t) + ε(t)
+- Capex of $800bn, a five-year life and a 10% cost of capital
+- Depreciation: 800 ÷ 5 = $160bn a year
+- Capital charge: 800 × 10% = $80bn in the first year
+- Gross profit needed: about $240bn a year
+- At a 60% gross margin, that is about $400bn of AI revenue a year
 
-Use Newey–West standard errors with lag truncation ≥ h/frequency to correct for overlapping return bias.
-Part 5 — Nominal Yield Decomposition
-The accounting decomposition is:
-NOMINAL_YIELD_10Y(t) ≈ REAL_YIELD_10Y(t) + BREAKEVEN_10Y(t)
+Compare that with actual AI revenue across the buyers. The gap, and how fast it is closing, decides whether the mid-term cycle holds. The most sensitive assumption is useful life: three years instead of five raises the required revenue sharply.
 
-Using Bloomberg tickers:
-GT10 Govt [yield] ≈ USGGT10Y Index [px_last] + USGGBE10 Index [px_last]
+## 5. Survival filter: seats in the loop
 
-In changes:
-Δ(GT10 yield) ≈ Δ(USGGT10Y) + Δ(USGGBE10)
+Classify each company by where it sits in the flow of money. Measure the seat, because many companies hold more than one.
 
-Methodological note: This is an accounting identity derived from market prices, not an independent structural model. The decomposition attributes nominal yield changes to real-rate repricing versus inflation-compensation repricing. It does not identify the structural drivers of either component. Bloomberg's breakeven is computed as the yield difference between matched-maturity nominal Treasuries and TIPS; it includes both inflation expectations and an inflation risk premium, which are not separately observable from market prices alone.
-BDH formula for decomposition data:
-=BDH("GT10 Govt","PX_LAST","1997-01-01","")
-=BDH("USGGT10Y Index","PX_LAST","1997-01-01","")
-=BDH("USGGBE10 Index","PX_LAST","1997-01-01","")
+| Seat | What it means | How to measure it | Main risk |
+| --- | --- | --- | --- |
+| Self-funded buyer | Pays for AI capex from its own cash flow | Free cash flow after capex; net cash | Return on the spending, not survival |
+| Seller | Sells chips, memory, servers or equipment into the build | Normalised margin; share of revenue from debt-funded customers | Earnings fall when buyers pause; customer credit risk |
+| Lender | Finances its own customers or guarantees their demand | Vendor financing, buy-back promises, purchase commitments, inventory growth against sales | Sale and loan disappear together |
+| Borrower | Needs new external money to keep operating | Interest cover; debt maturities; free cash flow after capex | Refinancing fails; equity wiped out |
 
-Part 6 — Signal Generation and Preliminary Validation
-Methodology Requirements
-The following requirements apply to all seven candidate factors:
+Two additions to the simple three-seat story:
 
-Look-ahead prevention: Economic releases must be aligned to eco_release_dt, not the reference period end date. Yield and price data are available same-day.
-Overlapping returns: For horizons h > 1 month, use Newey–West HAC standard errors with lag truncation ≥ h (in months). Report effective sample size after accounting for overlap.
-Multiple testing: Seven factors tested across four horizons = 28 tests. Apply Bonferroni or Benjamini–Hochberg correction before claiming significance.
-Rolling stability: Evaluate each factor's predictive coefficient in expanding and rolling windows (e.g., 5-year rolling) to assess parameter stability.
-Regime conditioning: Separate the sample into inflationary (CPI YoY > 3%) and disinflationary (CPI YoY < 3%) regimes and evaluate factor performance within each.
+- **Customer funding quality.** A seller whose customers are borrowers inherits their risk.
+- **Surviving is not winning.** A seller with real profits can survive and still be a poor investment for a decade if bought at the wrong price.
 
-Statistical Framework (Python-Ready)
-import pandas as pd
-import numpy as np
-from scipy import stats
-import statsmodels.api as sm
+## 6. Company valuation
 
-def newey_west_regression(y, X, lags):
-    """
-    OLS regression with Newey-West HAC standard errors.
-    lags: integer, set >= forecast horizon in periods
-    """
-    model = sm.OLS(y, sm.add_constant(X)).fit(
-        cov_type='HAC', cov_kwds={'maxlags': lags}
-    )
-    return model
+Only for companies that pass the survival filter.
 
-def compute_factor_stats(factor_series, fwd_returns, horizon_label):
-    """
-    Compute Pearson correlation, Spearman correlation, and NW regression
-    for a single factor against forward returns.
-    """
-    aligned = pd.concat([factor_series, fwd_returns], axis=1).dropna()
-    X = aligned.iloc[:, 0]
-    y = aligned.iloc[:, 1]
-    
-    pearson_r, pearson_p = stats.pearsonr(X, y)
-    spearman_r, spearman_p = stats.spearmanr(X, y)
-    
-    # Newey-West regression
-    lags = max(12, len(y) // 10)  # conservative lag selection
-    nw_result = newey_west_regression(y, X, lags)
-    
-    return {
-        'horizon': horizon_label,
-        'n_obs': len(y),
-        'pearson_r': pearson_r,
-        'pearson_p': pearson_p,
-        'spearman_r': spearman_r,
-        'spearman_p': spearman_p,
-        'nw_beta': nw_result.params[1],
-        'nw_tstat': nw_result.tvalues[1],
-        'nw_pvalue': nw_result.pvalues[1],
-        'r_squared': nw_result.rsquared
-    }
+1. **Normalise earnings.** Use mid-cycle margins, not the latest quarter. Adjust for depreciation lives, stock-based pay and one-off revenue.
+2. **Run three scenarios.** Bear (buyers cut capex 30–40%), base, bull.
+3. **Compare price with bear value.** The margin of safety is bear-case equity value against market cap.
+4. **Reverse the question.** Ask what growth and margin the current price already assumes.
 
-Signal Direction Hypotheses (Unvalidated)FactorHypothesized DirectionEconomic MechanismCaveatBE_MOM_60D ↑Short duration / underweight USTRising inflation compensation → higher nominal yields → negative duration returnsContemporaneous, not necessarily predictiveBE_SLOPE ↑Short durationSteeper inflation term structure → persistent inflation expectationsWeak theoretical priorREAL_YIELD_MOM_60D ↑Short durationRising real yields → tighter financial conditions → negative UST returnsMay be contemporaneousINFLATION_SURPRISE > 0Short duration on release datePositive surprise → upward yield revisionShort-lived; transaction costs matterSTOCK_BOND_CORR_60D ↑Reduce diversification allocationPositive correlation → bonds no longer hedge equitiesCorrelation is persistent but not stationaryBE_10Y level ↑Positive correlation regimeHigh inflation → positive stock–bond correlationSupported by 2022 episodeREAL_YIELD_GAP ↑Long duration (valuation)High real yield vs potential growth → attractive entry pointLong-horizon signal onlyExpand Table to Artifact PaneThese are hypotheses, not validated signals. No Sharpe ratio or alpha is reported without a defined executable position and return methodology.
-Deliverable A — Bloomberg Data DictionaryDatasetBloomberg TickerBloomberg FieldDescriptionUnitFrequencyStart DateEnd DateRevisionsAccessResearch PurposeUS Treasury Total ReturnLUATTRUU IndexTOT_RETURN_INDEX_GROSS_DVDSBroad US Treasury TR indexIndexDaily1973 (backfill)CurrentUnavailableBDH / BQLReturn targetUS Treasury TR (alt)BUSY Indexpx_lastBBG US TreasuryIndexDailyUnresolvedCurrentUnavailableBDH / BQLReturn targetT-Bill TR BenchmarkLD12TRUU Indexpx_lastBloomberg US T-Bills 1–3M TRIndexDailyUnresolvedCurrentUnavailableBDH / BQLCash benchmarkT-Bill TR (broader)LD20TRUU Indexpx_lastBloomberg US T-Bills TRIndexDailyUnresolvedCurrentUnavailableBDH / BQLCash benchmark3M T-Bill YieldTBUS03M Indexpx_last3M T-Bill yield (not TR)%DailyUnresolvedCurrentUnavailableBDH / BQLYield proxy onlyUS 2Y Treasury YieldGT2 Govtyield() / px_lastOn-the-run 2Y generic%Daily~1976CurrentUnavailableBDH / BQLExplanatoryUS 5Y Treasury YieldGT5 Govtyield() / px_lastOn-the-run 5Y generic%Daily~1962CurrentUnavailableBDH / BQLExplanatoryUS 10Y Treasury YieldGT10 Govtyield() / px_lastOn-the-run 10Y generic%Daily~1953CurrentUnavailableBDH / BQLExplanatoryUS 30Y Treasury YieldGT30 Govtyield() / px_lastOn-the-run 30Y generic%Daily~1977CurrentUnavailableBDH / BQLExplanatoryUS 10Y TIPS Real YieldUSGGT10Y Indexpx_last10Y TIPS generic real yield%DailyPost-1997CurrentUnavailableBDH / BQLFactor 3, 7US 5Y TIPS Real YieldUSGGT05Y Indexpx_last5Y TIPS generic real yield%DailyPost-1997CurrentUnavailableBDH / BQLExplanatoryUS 10Y BreakevenUSGGBE10 Indexpx_last10Y nominal minus TIPS yield%DailyPost-1997CurrentUnavailableBDH / BQLFactor 1, 2, 6US 5Y BreakevenUSGGBE05 Indexpx_last5Y nominal minus TIPS yield%DailyPost-1997CurrentUnavailableBDH / BQLFactor 2US 5Y5Y Fwd BreakevenUSGG5Y5Y Indexpx_last5Y inflation comp 5Y forward%DailyPost-1997CurrentUnavailableBDH / BQLExplanatoryEffective Fed Funds RateFDTR Indexpx_lastDaily effective FFR%Daily~1954CurrentUnavailableBDH / BQLExplanatoryUS Headline CPI (level)CPI INDX Indexcpi(type=HEADLINE, transform=LVL)BLS CPI-U SAIndexMonthly1947M1CurrentAvailableBQLExplanatoryUS Core CPI (level)CPUPAXFE Indexcpi(type=CORE, transform=LVL)BLS CPI ex food & energy SAIndexMonthly1957M1CurrentAvailableBQLExplanatoryUS Headline CPI (YoY)CPI YOY Indexactual_release / px_lastHeadline CPI YoY %%Monthly~1948CurrentAvailableBDH / BQLFactor 4US Core CPI (YoY)CPI XYOY Indexpx_lastCore CPI YoY %%Monthly~1958CurrentAvailableBDH / BQLExplanatoryUS Headline PCE (level)PCE DEF Indexpce_deflator(type=HEADLINE, transform=LVL)BEA PCE Deflator SAIndexMonthly1959M1CurrentAvailableBQLExplanatoryUS Core PCE (level)PCE CORE Indexpce_deflator(type=CORE, transform=LVL)BEA Core PCE Deflator SAIndexMonthly1959M1CurrentAvailableBQLExplanatoryCPI Consensus ForecastCPI YOY Indexbn_survey_medianBloomberg survey median%Monthly~3 yearsCurrentN/ABQLFactor 4CPI Release DateCPI YOY Indexeco_release_dtActual publication dateDateMonthly~3 yearsCurrentN/ABQLSignal timingCiti Eco Surprise IndexCESIUSD Indexpx_lastBroad US macro surpriseIndexDailyUnresolvedCurrentUnavailableBDH / BQLFactor 4 proxyBloomberg Eco SurpriseECSURPUS Indexpx_lastUS ECO Surprise IndexIndexDailyUnresolvedCurrentUnavailableBDH / BQLFactor 4 proxyS&P 500 Total ReturnSPXT Indexpx_lastS&P 500 with dividends reinvestedIndexDaily1989-09-11CurrentUnavailableBDH / BQLFactor 5, 6S&P 500 Price ReturnSPX Indexpx_lastS&P 500 price onlyIndexDaily~1928CurrentUnavailableBDH / BQLEquity benchmark3M T-Bill TR (S&P)SPBDUB3T Indexpx_lastS&P US T-Bill 0–3M TRIndexDaily1989-12-29CurrentUnavailableBDH / BQLCash benchmarkUS Potential GrowthBELTUSPG Indexpx_lastUS potential real GDP growth%Annual/Quarterly2006-12-31CurrentUncertainBDH / BQLFactor 7Expand Table to Artifact PaneDeliverable B — Historical Data Download Instructions
-Excel BDH Formulas
-' === TREASURY TOTAL RETURN INDEX ===
-=BDH("LUATTRUU Index","TOT_RETURN_INDEX_GROSS_DVDS","1973-01-01","","Per=M")
+The screening sheet holds a simplified version of steps 1 to 3 for the ten hardest-hit names.
 
-' === TREASURY YIELDS (daily) ===
-=BDH("GT10 Govt","PX_LAST","1953-01-01","")
-=BDH("GT2 Govt","PX_LAST","1976-01-01","")
-=BDH("GT30 Govt","PX_LAST","1977-01-01","")
+## 7. Scorecards
 
-' === TIPS REAL YIELDS (daily, post-1997) ===
-=BDH("USGGT10Y Index","PX_LAST","1997-01-01","")
-=BDH("USGGT05Y Index","PX_LAST","1997-01-01","")
+### Likely final losers
 
-' === BREAKEVEN INFLATION (daily, post-1997) ===
-=BDH("USGGBE10 Index","PX_LAST","1997-01-01","")
-=BDH("USGGBE05 Index","PX_LAST","1997-01-01","")
-=BDH("USGG5Y5Y Index","PX_LAST","1997-01-01","")
+Three or more of these suggest a high chance of permanent loss, whatever the price:
 
-' === CPI (monthly) ===
-=BDH("CPI INDX Index","PX_LAST","1947-01-01","","Per=M")
-=BDH("CPUPAXFE Index","PX_LAST","1957-01-01","","Per=M")
-=BDH("CPI YOY Index","PX_LAST","1948-01-01","","Per=M")
+- Free cash flow after capex is negative and depends on outside funding
+- Operating profit does not cover interest
+- Large debt maturities within 24 months
+- Revenue concentrated in a few customers who are themselves debt-funded
+- Assets (such as GPUs) that lose value faster than the debt is repaid
+- An undifferentiated product, such as rented compute
+- Growth that depends on a supplier's financing or guarantees
 
-' === PCE (monthly) ===
-=BDH("PCE DEF Index","PX_LAST","1959-01-01","","Per=M")
-=BDH("PCE CORE Index","PX_LAST","1959-01-01","","Per=M")
+### Likely long-term winners
 
-' === FED FUNDS (daily) ===
-=BDH("FDTR Index","PX_LAST","1954-01-01","")
+- Positive free cash flow even in the bear case
+- Net cash or low leverage
+- Scarce capacity or pricing power
+- Diversified, self-funded customers
+- Normalised returns above the cost of capital
+- No need to issue shares to fund growth
+- Price at or below bear-case value
 
-' === EQUITY (daily) ===
-=BDH("SPXT Index","PX_LAST","1989-09-11","")
-=BDH("SPX Index","PX_LAST","1928-01-01","")
+### The two middle groups
 
-' === T-BILL BENCHMARK (daily) ===
-=BDH("LD12TRUU Index","PX_LAST","1990-01-01","")
-=BDH("SPBDUB3T Index","PX_LAST","1989-12-29","")
+- **Good business, wrong price.** Survives, but returns are poor for years.
+- **Cyclicals.** Look cheapest at peak earnings and most expensive at the bottom. Memory is the clearest case.
 
-' === POTENTIAL GDP GROWTH (quarterly) ===
-=BDH("BELTUSPG Index","PX_LAST","2006-12-31","","Per=Q")
+### Starting hypotheses to test
 
-BQL Multi-Series Formula (Excel)
-=BQL("LUATTRUU Index, USGGBE10 Index, USGGT10Y Index, GT10 Govt, FDTR Index",
-     "px_last",
-     "dates=range(1997-01-01,BTODAY())",
-     "fill=prev",
-     "showdates=t")
+These are placements from reported facts, not conclusions.
 
-BQuant / Python Full Download Template
-import bql
-import pandas as pd
+| Group | Names | What decides it |
+| --- | --- | --- |
+| Borrower seat, highest risk | CoreWeave, Nebius | Whether they can refinance through a capex pause |
+| Cyclical sellers | Micron, SanDisk, Western Digital, Seagate | Where normalised margins settle once memory prices fall |
+| Thin-margin sellers | Dell, Super Micro | Customer credit quality and working capital |
+| Seller with a deal overhang | Marvell | Value per share after the Lumentum share issue |
+| Self-funded buyers | Amazon, Alphabet, Microsoft, Meta | Return on capex, not survival |
+| Seller and part lender | Nvidia | Size of its promises to customers and its inventory |
 
-bq = bql.Service()
+## 8. Is this 2000? A checklist, not a story
 
-# ── 1. Treasury Total Return Index ──────────────────────────────────────────
-luattruu = bq.execute(
-    bq.univ.list(['LUATTRUU Index']),
-    bq.data.px_last(
-        dates=bq.func.range('1973-01-01', '0D', frq='M'),
-        fill='prev'
-    )
-)
+| Feature | 2000 | Now | Status |
+| --- | --- | --- | --- |
+| Spending far ahead of revenue | Yes | Yes | Similar |
+| Suppliers financing their customers | Yes | Reported, not fully verified | Similar if confirmed |
+| Interest rates rising | Yes | Fed described as turning hawkish | Similar |
+| Main buyers living on debt | Yes | Largest buyers are highly profitable | Different |
+| Prices at extreme multiples of profit | Yes | Lower on current profit, but current profit may be a peak | Unclear |
 
-# ── 2. Yields ────────────────────────────────────────────────────────────────
-yields = bq.execute(
-    bq.univ.list(['GT2 Govt', 'GT5 Govt', 'GT10 Govt', 'GT30 Govt']),
-    bq.data.px_last(
-        dates=bq.func.range('1953-01-01', '0D'),
-        fill='prev'
-    )
-)
+The deciding variable is whether the self-funded buyers cut spending. One past episode is a sample of one, so use the checklist to form questions, not to predict the path.
 
-# ── 3. TIPS Real Yields & Breakevens (post-1997) ─────────────────────────────
-tips_be = bq.execute(
-    bq.univ.list([
-        'USGGT10Y Index', 'USGGT05Y Index',
-        'USGGBE10 Index', 'USGGBE05 Index', 'USGG5Y5Y Index'
-    ]),
-    bq.data.px_last(
-        dates=bq.func.range('1997-01-01', '0D'),
-        fill='prev'
-    )
-)
+## 9. Scenarios and signposts
 
-# ── 4. CPI (monthly, with release date for point-in-time alignment) ──────────
-cpi_releases = bq.execute(
-    bq.univ.list(['CPI YOY Index']),
-    {
-        'actual': bq.data.actual_release(
-            dates=bq.func.range('2000-01-01', '0D')
-        ),
-        'consensus': bq.data.bn_survey_median(
-            dates=bq.func.range('2000-01-01', '0D')
-        ),
-        'release_date': bq.data.eco_release_dt(
-            dates=bq.func.range('2000-01-01', '0D')
-        )
-    }
-)
-# Compute surprise
-cpi_releases['surprise'] = (
-    cpi_releases['actual'] - cpi_releases['consensus']
-)
+| Scenario | What happens | Signposts |
+| --- | --- | --- |
+| Correction | Capex holds; prices recover within months | Buyers raise or hold budgets; credit spreads narrow |
+| Cyclical bust | Capex cut 30–40%; borrowers restructure; seller profits fall sharply, then recover in two to three years | A large buyer cuts guidance; supplier inventories build; a borrower fails to refinance |
+| Structural bust | AI revenue does not arrive at scale; a multi-year decline | AI revenue growth stalls; write-downs of data-centre assets |
 
-# ── 5. PCE Deflators ─────────────────────────────────────────────────────────
-pce = bq.execute(
-    bq.univ.list(['PCE DEF Index', 'PCE CORE Index']),
-    bq.data.px_last(
-        dates=bq.func.range('1959-01-01', '0D', frq='M'),
-        fill='prev'
-    )
-)
+Assign your own probabilities and update them at each signpost.
 
-# ── 6. Fed Funds ─────────────────────────────────────────────────────────────
-ffr = bq.execute(
-    bq.univ.list(['FDTR Index']),
-    bq.data.px_last(
-        dates=bq.func.range('1954-01-01', '0D'),
-        fill='prev'
-    )
-)
+Dates to watch:
 
-# ── 7. Equity & T-Bill Benchmark ─────────────────────────────────────────────
-equity = bq.execute(
-    bq.univ.list(['SPXT Index', 'LD12TRUU Index']),
-    bq.data.px_last(
-        dates=bq.func.range('1989-09-11', '0D'),
-        fill='prev'
-    )
-)
+- Dell results: 24 November
+- Marvell results: 1 December
+- Fed meeting: December
+- Big-buyer capex guidance: late January (date from a video, unverified)
+- Nvidia results and inventory: late February (date from a video, unverified)
 
-# ── 8. Potential GDP Growth ───────────────────────────────────────────────────
-pot_gdp = bq.execute(
-    bq.univ.list(['BELTUSPG Index']),
-    bq.data.px_last(
-        dates=bq.func.range('2006-12-31', '0D', frq='Q'),
-        fill='prev'
-    )
-)
+## 10. Decision rules
 
-Deliverable C — Factor Dataset SummaryFactorFormulaFirst Valid DateTransformationKey LimitationF1: BE_MOM_60DUSGGBE10(t) − USGGBE10(t−60BD)~1997 + 60 trading days60-day difference of daily breakevenSample begins post-TIPS inceptionF2: BE_SLOPEUSGGBE10(t) − USGGBE05(t)~1997Spread of two daily seriesSample begins post-TIPS inceptionF3: REAL_YIELD_MOM_60DUSGGT10Y(t) − USGGT10Y(t−60BD)~1997 + 60 trading days60-day difference of daily real yieldSample begins post-TIPS inceptionF4: INFLATION_SURPRISEactual_release(t) − bn_survey_median(t)~2000 (Bloomberg consensus)Monthly release-date alignedConsensus history ~3 years in BQL; longer via ECSTF5: STOCK_BOND_CORR_60DCorr(R_SPXT, R_LUATTRUU) over 60BD1989 + 60 trading daysRolling 60-day correlationSPXT begins 1989; LUATTRUU backfill pre-1986F6: INFLATION_REGIMEPredictor set: BE_10Y level, BE_MOM_60D, REAL_YIELD_MOM_60D, CPI YoY~1997 (breakeven-dependent)Regression / regime classificationRequires TIPS data; short sampleF7: REAL_YIELD_GAPUSGGT10Y(t) − BELTUSPG(t)2007 (BELTUSPG from 2006-12-31)Monthly/quarterly alignmentBELTUSPG only from 2007; no vintage trackingExpand Table to Artifact PaneDeliverable D — Signal Research ResultsFactorHypothesized MechanismTargetSignal DirectionHorizonSamplePredictive CoefficientSignificanceOOS ResultKey LimitationsF1: BE_MOM_60DRising inflation comp → higher nominal yields → negative duration returnsUST excess returnNegative (↑ factor → ↓ return)1M, 3M~1997–presentNot calculatedNot calculatedNot calculatedShort sample; contemporaneous vs predictive distinction unresolvedF2: BE_SLOPESteeper inflation term structure → persistent inflation → negative durationUST excess returnNegative1M, 3M~1997–presentNot calculatedNot calculatedNot calculatedWeak theoretical prior; short sampleF3: REAL_YIELD_MOM_60DRising real yields → tighter conditions → negative UST returnsUST excess returnNegative1M, 3M~1997–presentNot calculatedNot calculatedNot calculatedMay be contemporaneous; short sampleF4: INFLATION_SURPRISEPositive CPI surprise → upward yield revision → negative UST return on release dayUST return (event window)Negative0–5 days~2000–presentNot calculatedNot calculatedNot calculatedShort-lived effect; transaction costs likely consume signalF5: STOCK_BOND_CORR_60DPositive correlation → bonds no longer hedge equitiesStock–bond allocationReduce bond allocation when corr > 01M, 3M1989–presentNot calculatedNot calculatedNot calculatedCorrelation is persistent; regime changes are infrequentF6: INFLATION_REGIMEHigh inflation → positive stock–bond correlationStock–bond correlationPositive corr regime when BE_10Y high1M, 3M~1997–presentNot calculatedNot calculatedNot calculatedShort sample; 2022 is a single episodeF7: REAL_YIELD_GAPHigh real yield vs potential growth → attractive valuation → positive future real returnsReal UST returnPositive (↑ gap → ↑ future return)6M, 12M, 24M, 36M~2007–presentNot calculatedNot calculatedNot calculatedVery short sample for 24–36M horizons; BELTUSPG no vintageExpand Table to Artifact PaneAll predictive coefficients, significance levels, and OOS results are marked "Not calculated." The data exports in Deliverable B and the Python framework in Part 6 provide the complete infrastructure to compute these statistics externally. Reporting estimated coefficients without executing the regressions on the downloaded data would constitute fabrication.
-Deliverable E — Reproducibility Summary
-Terminal Verification
+- Do not use valuation to time the short term.
+- A stock qualifies only if it passes the survival filter and is priced at or below bear value.
+- Treat borrower-seat equities as options on refinancing, sized accordingly.
+- Re-run the sector test whenever a large buyer changes its capex guidance.
 
-Verify LUATTRUU inception: LUATTRUU Index DES 
-Verify TIPS/breakeven history: USGGT10Y Index GP MAX , USGGBE10 Index HP MAX 
-CPI release history and consensus: ECST 
-Field definitions: FLDS PX_LAST 
-Fed Funds implied probabilities: WIRP 
+## 11. Limits
 
-Key Unresolved ItemsItemStatusRecommended ActionLUATTRUU inception dateUnresolved (BQL timeout)Verify via LUATTRUU Index DES <GO> or BDH with 1973-01-01 startLD12TRUU inception dateUnresolvedVerify via Terminal HP MAXUSGGBE10 / USGGT10Y exact first dateUnresolved (confirmed post-1997)Use GP MAX or HP MAX on TerminalBloomberg CPI consensus history > 3 yearsUnresolvedUse ECST on Terminal; consider Haver Analytics for longer historyBELTUSPG vintage trackingUnavailable on BloombergUse CBO published outlook documents aligned to publication datesPre-1997 inflation expectations proxyNot available on Bloomberg (market-based)Use Michigan Survey ( CONSSENT Index family) or external SPF dataPre-1989 equity total returnNot available on Bloomberg (SPXT)Use CRSP or Shiller dataset for pre-1989 dividend-inclusive equity returns
+- The scenarios and multiples are judgement, not estimates from data.
+- The framework gives point estimates with wide error bands.
+- Several facts about supplier financing come from press reports and a video, and are not verified here.
+- Prices are moving by 10% or more a day, so any snapshot goes stale quickly.
